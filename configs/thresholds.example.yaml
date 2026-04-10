@@ -1,0 +1,15 @@
+thresholds_version: th_v1
+global:
+  min_box_pixels: 4
+  duplicate_iou: 0.9
+  expanded_crop_ratio: 1.5
+  refine_window_ratio: 1.5
+per_class:
+  helmet:
+    min_confidence_keep: 0.90
+    min_confidence_relabel: 0.92
+    aspect_ratio_max: 4.0
+  person:
+    min_confidence_keep: 0.90
+    min_confidence_relabel: 0.92
+    aspect_ratio_max: 6.0

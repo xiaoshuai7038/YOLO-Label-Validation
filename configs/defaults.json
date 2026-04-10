@@ -1,0 +1,36 @@
+{
+  "input_formats": [
+    "yolo_txt",
+    "coco_json"
+  ],
+  "analysis_format": "internal_json",
+  "candidate_sampling": {
+    "image_top_ratio": 0.1,
+    "annotation_top_ratio": 0.2
+  },
+  "vlm": {
+    "model": "qwen2.5-vl",
+    "decision_enum": [
+      "keep",
+      "relabel",
+      "refine",
+      "delete",
+      "add_missing",
+      "uncertain"
+    ]
+  },
+  "detector_b": {
+    "family": "ultralytics_compatible",
+    "mode": "closed_set"
+  },
+  "decision_thresholds": {
+    "keep": 0.9,
+    "relabel": 0.92,
+    "refine_geometry_iou_floor": 0.5,
+    "delete_requires_detector_absence": true
+  },
+  "patch_policy": {
+    "write_mode": "patch_only",
+    "allow_source_overwrite": false
+  }
+}

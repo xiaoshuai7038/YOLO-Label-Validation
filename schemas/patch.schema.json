@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/patch.schema.json",
+  "title": "PatchRecord",
+  "type": "object",
+  "required": [
+    "patch_id",
+    "image_id",
+    "ann_id",
+    "action",
+    "reason",
+    "review_source",
+    "confidence",
+    "human_reviewed",
+    "timestamp"
+  ],
+  "properties": {
+    "patch_id": {
+      "type": "string"
+    },
+    "image_id": {
+      "type": "string"
+    },
+    "ann_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "old_class_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "old_bbox_xyxy": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "number"
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "keep",
+        "relabel",
+        "refine",
+        "delete",
+        "add"
+      ]
+    },
+    "new_class_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "new_bbox_xyxy": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "number"
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "reason": {
+      "type": "string"
+    },
+    "review_source": {
+      "type": "object"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "human_reviewed": {
+      "type": "boolean"
+    },
+    "timestamp": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

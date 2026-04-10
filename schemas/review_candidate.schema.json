@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/review_candidate.schema.json",
+  "title": "ReviewCandidate",
+  "type": "object",
+  "required": [
+    "image_id",
+    "image_score",
+    "candidate_annotations"
+  ],
+  "properties": {
+    "image_id": {
+      "type": "string"
+    },
+    "image_score": {
+      "type": "number"
+    },
+    "candidate_annotations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "ann_id",
+          "risk_tags",
+          "risk_score"
+        ],
+        "properties": {
+          "ann_id": {
+            "type": "string"
+          },
+          "risk_tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "risk_score": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

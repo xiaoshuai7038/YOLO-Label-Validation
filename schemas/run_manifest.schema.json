@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/run_manifest.schema.json",
+  "title": "RunManifest",
+  "type": "object",
+  "required": [
+    "run_id",
+    "dataset_version",
+    "class_map_version",
+    "source_formats",
+    "prelabel_source",
+    "primary_model_version",
+    "secondary_detector_version",
+    "vlm_version",
+    "rules_version",
+    "thresholds_version",
+    "created_at",
+    "artifacts"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "dataset_version": {
+      "type": "string"
+    },
+    "class_map_version": {
+      "type": "string"
+    },
+    "source_formats": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "prelabel_source": {
+      "type": "string"
+    },
+    "primary_model_version": {
+      "type": "string"
+    },
+    "secondary_detector_version": {
+      "type": "string"
+    },
+    "vlm_version": {
+      "type": "string"
+    },
+    "rules_version": {
+      "type": "string"
+    },
+    "thresholds_version": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}
