@@ -29,3 +29,13 @@ file and archive older ones if needed.
   `python scripts\run_cli.py show-layout`)
 - **Decision**: continue
 - **Next step**: start FR-001/FR-002 ingestion implementation with fixture data
+
+### Iteration: 2026-04-10
+- **Milestone**: M1 hardening
+- **Change**: fixed GitHub Actions CI by declaring a `test` extra in
+  `pyproject.toml` and installing `.[test]` before running `python -m pytest`
+- **Files modified**: `pyproject.toml`, `.github/workflows/ci.yml`
+- **Verification result**: pass (`python -m pip install -e ".[test]"`,
+  `python -m pytest -q`, `python scripts\check_task_docs.py tasks\repo-harness-bootstrap`)
+- **Decision**: continue
+- **Next step**: wait for GitHub Actions to rerun with the updated workflow

@@ -31,3 +31,10 @@
 - Evidence: `pytest -q`, `python scripts/check_task_docs.py tasks/repo-harness-bootstrap`,
   `python scripts/run_cli.py show-layout`
 - Result: pass
+
+### Entry: 2026-04-10 / DOC-005
+- Scope: fixed CI bootstrap so GitHub runners install test dependencies before
+  executing the test step
+- Evidence: `pyproject.toml`, `.github/workflows/ci.yml`,
+  `python -m pip install -e ".[test]"`, `python -m pytest -q`
+- Result: pass

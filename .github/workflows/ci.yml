@@ -15,8 +15,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package
-        run: python -m pip install -e .
+        run: python -m pip install -e '.[test]'
       - name: Run tests
-        run: pytest -q
+        run: python -m pytest -q
       - name: Validate task docs
         run: python scripts/check_task_docs.py tasks/repo-harness-bootstrap
