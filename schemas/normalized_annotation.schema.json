@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/normalized_annotation.schema.json",
+  "title": "NormalizedAnnotation",
+  "type": "object",
+  "required": [
+    "ann_id",
+    "image_id",
+    "source_id",
+    "source_format",
+    "class_id",
+    "class_name",
+    "bbox_xyxy",
+    "bbox_xywh",
+    "bbox_normalized_cxcywh",
+    "area",
+    "iscrowd",
+    "lineage"
+  ],
+  "properties": {
+    "ann_id": {
+      "type": "string"
+    },
+    "image_id": {
+      "type": "string"
+    },
+    "source_id": {
+      "type": "string"
+    },
+    "source_format": {
+      "type": "string"
+    },
+    "class_id": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "class_name": {
+      "type": "string"
+    },
+    "bbox_xyxy": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "bbox_xywh": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "bbox_normalized_cxcywh": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "area": {
+      "type": "number"
+    },
+    "iscrowd": {
+      "type": "boolean"
+    },
+    "lineage": {
+      "type": "object",
+      "required": [
+        "source_id",
+        "source_format",
+        "source_annotation_ref",
+        "source_annotation_id",
+        "source_image_id",
+        "source_image_path",
+        "source_label_path",
+        "source_category_id",
+        "source_category_name",
+        "raw_annotation"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string"
+        },
+        "source_format": {
+          "type": "string"
+        },
+        "source_annotation_ref": {
+          "type": "string"
+        },
+        "source_annotation_id": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "source_image_id": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "source_image_path": {
+          "type": "string"
+        },
+        "source_label_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_category_id": {
+          "type": "integer"
+        },
+        "source_category_name": {
+          "type": "string"
+        },
+        "raw_annotation": {
+          "type": [
+            "object",
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

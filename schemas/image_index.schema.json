@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/image_index.schema.json",
+  "title": "ImageIndex",
+  "type": "object",
+  "required": [
+    "dataset_version",
+    "images"
+  ],
+  "properties": {
+    "dataset_version": {
+      "type": "string"
+    },
+    "images": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "image_id",
+          "source_id",
+          "source_format",
+          "file_name",
+          "relative_path",
+          "width",
+          "height",
+          "source_image_id",
+          "annotation_count"
+        ],
+        "properties": {
+          "image_id": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "source_format": {
+            "type": "string"
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "relative_path": {
+            "type": "string"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "source_image_id": {
+            "type": [
+              "integer",
+              "string",
+              "null"
+            ]
+          },
+          "annotation_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

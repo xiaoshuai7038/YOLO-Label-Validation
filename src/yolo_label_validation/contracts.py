@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 
 ArtifactKind = Literal["json_array", "json_object", "jsonl"]
+SourceFormat = Literal["yolo_txt", "coco_json"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,7 +164,7 @@ CANONICAL_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ),
 )
 
-DEFAULT_SOURCE_FORMATS = ("yolo_txt", "coco_json")
+DEFAULT_SOURCE_FORMATS: tuple[SourceFormat, ...] = ("yolo_txt", "coco_json")
 
 
 def utc_now_iso() -> str:
@@ -202,9 +203,10 @@ class RunManifest:
     dataset_version: str
     class_map_version: str
     prelabel_source: str
-    source_formats: list[str] = field(
+    source_formats: list[SourceFormat] = field(
         default_factory=lambda: list(DEFAULT_SOURCE_FORMATS)
     )
+    normalization_version: str = "ingest_v1"
     primary_model_version: str = "prelabel_model_v1"
     secondary_detector_version: str = "detector_b_v0"
     vlm_version: str = "qwen2.5-vl"
@@ -212,6 +214,8 @@ class RunManifest:
     thresholds_version: str = "th_v1"
     created_at: str = field(default_factory=utc_now_iso)
     artifacts: dict[str, str] = field(default_factory=dict)
+    input_sources: list[dict[str, Any]] = field(default_factory=list)
+    record_counts: dict[str, int] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -221,6 +225,7 @@ class RunManifest:
             "class_map_version": self.class_map_version,
             "prelabel_source": self.prelabel_source,
             "source_formats": self.source_formats,
+            "normalization_version": self.normalization_version,
             "primary_model_version": self.primary_model_version,
             "secondary_detector_version": self.secondary_detector_version,
             "vlm_version": self.vlm_version,
@@ -228,5 +233,7 @@ class RunManifest:
             "thresholds_version": self.thresholds_version,
             "created_at": self.created_at,
             "artifacts": self.artifacts,
+            "input_sources": self.input_sources,
+            "record_counts": self.record_counts,
             "notes": self.notes,
         }

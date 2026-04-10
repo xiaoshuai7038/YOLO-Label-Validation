@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/manual_review_item.schema.json",
+  "title": "ManualReviewItem",
+  "type": "object",
+  "required": [
+    "queue_id",
+    "image_id",
+    "ann_id",
+    "requested_action",
+    "priority",
+    "reason",
+    "reason_codes",
+    "evidence"
+  ],
+  "properties": {
+    "queue_id": {
+      "type": "string"
+    },
+    "image_id": {
+      "type": "string"
+    },
+    "ann_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "requested_action": {
+      "type": "string"
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3
+    },
+    "reason": {
+      "type": "string"
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "evidence": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

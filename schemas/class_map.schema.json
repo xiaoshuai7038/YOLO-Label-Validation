@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/class_map.schema.json",
+  "title": "ClassMap",
+  "type": "object",
+  "required": [
+    "class_map_version",
+    "source_formats",
+    "classes"
+  ],
+  "properties": {
+    "class_map_version": {
+      "type": "string"
+    },
+    "source_formats": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "classes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "class_id",
+          "class_name",
+          "source_mappings"
+        ],
+        "properties": {
+          "class_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "class_name": {
+            "type": "string"
+          },
+          "source_mappings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "source_id",
+                "source_format",
+                "source_class_id",
+                "source_class_name"
+              ],
+              "properties": {
+                "source_id": {
+                  "type": "string"
+                },
+                "source_format": {
+                  "type": "string"
+                },
+                "source_class_id": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "source_class_name": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

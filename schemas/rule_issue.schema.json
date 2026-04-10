@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/rule_issue.schema.json",
+  "title": "RuleIssue",
+  "type": "object",
+  "required": [
+    "issue_id",
+    "image_id",
+    "ann_id",
+    "related_ann_id",
+    "issue_type",
+    "severity",
+    "reason_code",
+    "reason",
+    "auto_action_hint",
+    "metric_kind",
+    "evidence"
+  ],
+  "properties": {
+    "issue_id": {
+      "type": "string"
+    },
+    "image_id": {
+      "type": "string"
+    },
+    "ann_id": {
+      "type": "string"
+    },
+    "related_ann_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "issue_type": {
+      "type": "string"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "error",
+        "warning"
+      ]
+    },
+    "reason_code": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "auto_action_hint": {
+      "type": "string"
+    },
+    "metric_kind": {
+      "type": "string",
+      "enum": [
+        "measured",
+        "proxy",
+        "pending"
+      ]
+    },
+    "evidence": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

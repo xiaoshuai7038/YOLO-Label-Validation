@@ -1,49 +1,54 @@
 # prompt.md - Current Milestone Contract
 
-This file describes only the current milestone.
+This file describes only the current execution focus.
 For the full roadmap, see `docs/plan.md`. For stable spec, see
 `docs/project_spec.md`.
 
-## Current Milestone: M2 - Build FR-001/FR-002 input normalization and run manifests
+## Current Milestone: Closeout - Local roadmap completed through M5
 
 ## Scope
 
-Implement the first real audit capability after repository bootstrap:
-read YOLO txt or COCO JSON, normalize them into one internal annotation
-contract, and preserve enough lineage to trace every normalized annotation back
-to the raw source.
+Keep the repository in a verified closeout state after the full local roadmap
+delivery: normalization, rules, risk, VLM review, decision routing, detector
+proposals, patch generation, materialization, and run-level summaries are now
+implemented.
 
 ## In-Scope
 
-- parser and writer contracts for YOLO txt and COCO JSON
-- versioned `run_manifest.json`, `image_index.json`, and `class_map.json`
-- per-annotation lineage fields required for later patch traceability
+- preserve the delivered artifact contracts and schema set
+- keep M1-M5 regression and task-doc gates green
+- maintain traceability, patch-only writes, and explicit reasons in all
+  downstream outputs
 
 ## Non-Goals
 
-- Cleanlab, FiftyOne, Qwen2.5-VL, or CVAT integration
-- detector-backed box refinement or missing-box recovery
+- live external-service execution that requires credentials or remote state
+- scope expansion beyond fixed-class 2D detection boxes
 
 ## Hard Constraints
 
-- downstream code must not consume raw source formats directly
+- downstream code must consume normalized internal contracts, not raw source
+  formats
 - source images and source labels remain read-only
-- normalization output must be deterministic for the same inputs and versions
+- every automatic decision or patch must include `reason` or `reason_code`
+- no future change may reintroduce upstream artifact clobbering across stages
 
 ## Verification Commands
 
 ```powershell
-pytest -q
+uv run pytest -q
+uv run python scripts/check_task_docs.py tasks/m3-m5-full-delivery
 ```
 
 ## Required Evidence
 
-- fixture-based normalization output for both YOLO txt and COCO JSON
-- a traceability proof from one normalized annotation back to its raw source
+- green regression for all modules from M1 through M5
+- focused CLI smoke for the full staged flow
+- synchronized roadmap, execution plans, and documentation
 
 ## Done When
 
-- [ ] both source formats can be normalized into the same annotation contract
-- [ ] `run_manifest.json` captures dataset and model versions explicitly
-- [ ] all verification commands pass
-- [ ] `docs/documentation.md` updated with results
+- [x] full local roadmap remains implemented and validated
+- [x] all verification commands pass
+- [x] `docs/documentation.md` and task docs reflect the delivered state
+- [x] no automatic action omits `reason` or `reason_code`

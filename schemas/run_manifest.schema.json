@@ -9,13 +9,16 @@
     "class_map_version",
     "source_formats",
     "prelabel_source",
+    "normalization_version",
     "primary_model_version",
     "secondary_detector_version",
     "vlm_version",
     "rules_version",
     "thresholds_version",
     "created_at",
-    "artifacts"
+    "artifacts",
+    "input_sources",
+    "record_counts"
   ],
   "properties": {
     "run_id": {
@@ -35,6 +38,9 @@
       "minItems": 1
     },
     "prelabel_source": {
+      "type": "string"
+    },
+    "normalization_version": {
       "type": "string"
     },
     "primary_model_version": {
@@ -60,6 +66,35 @@
       "additionalProperties": {
         "type": "string"
       }
+    },
+    "input_sources": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "record_counts": {
+      "type": "object",
+      "required": [
+        "annotations",
+        "images",
+        "classes"
+      ],
+      "properties": {
+        "annotations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "images": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "classes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
     },
     "notes": {
       "type": "array",

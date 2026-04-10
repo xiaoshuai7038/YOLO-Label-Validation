@@ -49,6 +49,27 @@ def initialize_run_directory(
     return manifest
 
 
+def ensure_run_directory_layout(
+    output_dir: Path,
+    manifest: RunManifest,
+) -> RunManifest:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    layout = build_artifact_layout(output_dir)
+    manifest.artifacts = layout.as_dict()
+
+    for spec in artifact_specs():
+        path = layout.path_for(spec.name)
+        if path.exists():
+            continue
+        if spec.name == "run_manifest":
+            _write_json(path, manifest.to_dict())
+            continue
+        _write_empty_artifact(path, spec.kind)
+
+    _write_json(layout.path_for("run_manifest"), manifest.to_dict())
+    return manifest
+
+
 def render_layout_table() -> str:
     header = "name | file | kind | required | description"
     divider = "--- | --- | --- | --- | ---"

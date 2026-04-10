@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/risk_score.schema.json",
+  "title": "RiskScore",
+  "type": "object",
+  "required": [
+    "image_id",
+    "ann_id",
+    "class_id",
+    "class_name",
+    "risk_score",
+    "risk_tags",
+    "reason_codes",
+    "metric_kind",
+    "evidence",
+    "image_score"
+  ],
+  "properties": {
+    "image_id": {
+      "type": "string"
+    },
+    "ann_id": {
+      "type": "string"
+    },
+    "class_id": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "class_name": {
+      "type": "string"
+    },
+    "risk_score": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "risk_tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "metric_kind": {
+      "type": "string",
+      "enum": [
+        "measured",
+        "proxy",
+        "pending"
+      ]
+    },
+    "evidence": {
+      "type": "object"
+    },
+    "image_score": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/golden_eval_report.schema.json",
+  "title": "GoldenEvalReport",
+  "type": "object",
+  "required": [
+    "golden_set_version",
+    "source_run_id",
+    "evaluated_image_count",
+    "observed_issue_count",
+    "rule_issue_precision",
+    "rule_issue_recall",
+    "notes"
+  ],
+  "properties": {
+    "golden_set_version": {
+      "type": "string"
+    },
+    "source_run_id": {
+      "type": "string"
+    },
+    "evaluated_image_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "observed_issue_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rule_issue_precision": {
+      "type": "object",
+      "required": [
+        "value",
+        "metric_kind"
+      ],
+      "properties": {
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "metric_kind": {
+          "type": "string",
+          "enum": [
+            "measured",
+            "proxy",
+            "pending"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "rule_issue_recall": {
+      "type": "object",
+      "required": [
+        "value",
+        "metric_kind"
+      ],
+      "properties": {
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "metric_kind": {
+          "type": "string",
+          "enum": [
+            "measured",
+            "proxy",
+            "pending"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

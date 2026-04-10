@@ -7,14 +7,22 @@ Live index of execution plans for this repository.
 
 ## Active
 
-- `docs/exec-plans/active/EP-001-bootstrap-and-ingest.md`
-  Repository scaffold is initialized. The next active build target is
-  FR-001/FR-002: input normalization and run-manifest fidelity.
+- No active execution plan. The local M1-M5 roadmap is currently complete.
 
 ## Completed
 
 - `docs/exec-plans/completed/EP-000-repo-harness-bootstrap.md`
   Harness engineering foundation completed at `foundation` closure.
+- `docs/exec-plans/completed/EP-001-bootstrap-and-ingest.md`
+  Input normalization and run-manifest fidelity completed at `slice` closure.
+- `docs/exec-plans/completed/EP-002-rules-and-thresholds.md`
+  Rule validation, class stats, and threshold contracts completed at `slice` closure.
+- `docs/exec-plans/completed/EP-003-risk-vlm-decision.md`
+  Risk ranking, VLM protocol handling, and decision routing completed at
+  `slice` closure.
+- `docs/exec-plans/completed/EP-004-refine-materialize-ops.md`
+  Detector proposals, materialization, and run-level ops artifacts completed at
+  `full` closure.
 
 ## Rules
 

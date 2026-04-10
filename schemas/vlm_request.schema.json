@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/vlm_request.schema.json",
+  "title": "VLMRequest",
+  "type": "object",
+  "required": [
+    "request_id",
+    "image_id",
+    "ann_id",
+    "model",
+    "prompt_version",
+    "allowed_decisions",
+    "image_reference",
+    "annotation_context",
+    "class_candidates",
+    "response_contract"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string"
+    },
+    "image_id": {
+      "type": "string"
+    },
+    "ann_id": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "prompt_version": {
+      "type": "string"
+    },
+    "allowed_decisions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "image_reference": {
+      "type": "object",
+      "required": [
+        "file_name",
+        "relative_path",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "file_name": {
+          "type": "string"
+        },
+        "relative_path": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "annotation_context": {
+      "type": "object",
+      "required": [
+        "class_id",
+        "class_name",
+        "bbox_xyxy",
+        "bbox_normalized_cxcywh",
+        "risk_score",
+        "image_score",
+        "risk_tags",
+        "reason_codes",
+        "rule_issues"
+      ],
+      "properties": {
+        "class_id": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "class_name": {
+          "type": "string"
+        },
+        "bbox_xyxy": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "bbox_normalized_cxcywh": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "risk_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "image_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "risk_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rule_issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "issue_type",
+              "severity",
+              "reason_code",
+              "reason"
+            ],
+            "properties": {
+              "issue_type": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string"
+              },
+              "reason_code": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "class_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "class_id",
+          "class_name"
+        ],
+        "properties": {
+          "class_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "class_name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "response_contract": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

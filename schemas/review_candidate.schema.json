@@ -22,7 +22,8 @@
         "required": [
           "ann_id",
           "risk_tags",
-          "risk_score"
+          "risk_score",
+          "reason_codes"
         ],
         "properties": {
           "ann_id": {
@@ -36,6 +37,12 @@
           },
           "risk_score": {
             "type": "number"
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/run_summary.schema.json",
+  "title": "RunSummary",
+  "type": "object",
+  "required": [
+    "run_id",
+    "materialized_output_dir",
+    "record_counts",
+    "decision_counts",
+    "patch_counts",
+    "metrics",
+    "source_protection"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "materialized_output_dir": {
+      "type": "string"
+    },
+    "record_counts": {
+      "type": "object"
+    },
+    "decision_counts": {
+      "type": "object"
+    },
+    "patch_counts": {
+      "type": "object"
+    },
+    "metrics": {
+      "type": "object"
+    },
+    "source_protection": {
+      "type": "object",
+      "required": [
+        "allow_source_overwrite",
+        "metric_kind"
+      ],
+      "properties": {
+        "allow_source_overwrite": {
+          "type": "boolean"
+        },
+        "metric_kind": {
+          "type": "string",
+          "enum": [
+            "measured",
+            "proxy",
+            "pending"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

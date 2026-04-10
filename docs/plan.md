@@ -1,16 +1,16 @@
 # plan.md - Milestone Board
 
-Current milestone marked with `->`.
+Current milestone marked with `->` when one is active.
 
 ## Milestone Overview
 
 | ID | Title | Status | Depends On |
 |---|---|---|---|
 | M1 | Bootstrap harness docs, schemas, and run scaffold | completed | none |
-| M2 | Build FR-001/FR-002 input normalization and run manifests | -> in progress | M1 |
-| M3 | Build FR-003/FR-004/FR-005 golden set, rules, and thresholds | pending | M2 |
-| M4 | Build FR-006/FR-007/FR-008/FR-009 risk, VLM review, and decision engine | pending | M3 |
-| M5 | Build FR-010/FR-011/FR-012/FR-013/FR-015/FR-016 detector refine, CVAT, materialization, and ops | pending | M4 |
+| M2 | Build FR-001/FR-002 input normalization and run manifests | completed | M1 |
+| M3 | Build FR-003/FR-004/FR-005 golden set, rules, and thresholds | completed | M2 |
+| M4 | Build FR-006/FR-007/FR-008/FR-009 risk, VLM review, and decision engine | completed | M3 |
+| M5 | Build FR-010/FR-011/FR-012/FR-013/FR-015/FR-016 detector refine, CVAT, materialization, and ops | completed | M4 |
 
 ---
 
@@ -39,7 +39,7 @@ pytest -q
 
 ---
 
-## -> M2: Build FR-001/FR-002 input normalization and run manifests
+## M2: Build FR-001/FR-002 input normalization and run manifests
 
 **Goal**: ingest YOLO txt and COCO JSON into one internal contract with
 source-to-normalized traceability and versioned run manifests.
@@ -48,9 +48,9 @@ source-to-normalized traceability and versioned run manifests.
 source lineage, run-manifest fidelity
 
 **Deliverables**:
-- [ ] parse YOLO txt and COCO JSON into one `normalized_annotations.jsonl`
-- [ ] emit `image_index.json`, `class_map.json`, and lineage fields for each ann
-- [ ] reject ambiguous or inconsistent class-map definitions
+- [x] parse YOLO txt and COCO JSON into one `normalized_annotations.jsonl`
+- [x] emit `image_index.json`, `class_map.json`, and lineage fields for each ann
+- [x] reject ambiguous or inconsistent class-map definitions
 
 **Verification**:
 
@@ -63,8 +63,6 @@ pytest -q
 - every normalized annotation can be traced back to its raw source record
 - all verification commands pass
 
----
-
 ## M3: Build FR-003/FR-004/FR-005 golden set, rules, and thresholds
 
 **Goal**: establish explicit rule validation and thresholded statistics before
@@ -73,14 +71,14 @@ any model-assisted review.
 **Scope**: golden-set manifest, rule checks, class stats, thresholds
 
 **Deliverables**:
-- [ ] implement explicit invalid-box and invalid-class checks
-- [ ] emit class-level stats and threshold snapshots
-- [ ] attach issue type, severity, and auto-action hints to every rule issue
+- [x] implement explicit invalid-box and invalid-class checks
+- [x] emit class-level stats and threshold snapshots
+- [x] attach issue type, severity, and auto-action hints to every rule issue
 
 **Verification**:
 
 ```powershell
-pytest -q
+uv run pytest -q
 ```
 
 **Done When**:
@@ -98,14 +96,14 @@ and produce deterministic actions.
 **Scope**: risk fusion, VLM request/response pipeline, decision engine, patches
 
 **Deliverables**:
-- [ ] emit candidate rankings with configurable fusion policy
-- [ ] parse only schema-valid VLM JSON responses
-- [ ] output deterministic `decision_results.json` and `patches.json`
+- [x] emit candidate rankings with configurable fusion policy
+- [x] parse only schema-valid VLM JSON responses
+- [x] output deterministic `decision_results.json` and `patches.json`
 
 **Verification**:
 
 ```powershell
-pytest -q
+uv run pytest -q
 ```
 
 **Done When**:
@@ -124,9 +122,9 @@ materialized exports, and audit summaries.
 summary, metrics
 
 **Deliverables**:
-- [ ] accept or reject detector-backed refine/add proposals with reasons
-- [ ] emit manual review tasks with full evidence context
-- [ ] materialize patch-applied dataset versions and run-level summaries
+- [x] accept or reject detector-backed refine/add proposals with reasons
+- [x] emit manual review tasks with full evidence context
+- [x] materialize patch-applied dataset versions and run-level summaries
 
 **Verification**:
 
@@ -155,3 +153,8 @@ After promotion:
 1. Move `->` to the next milestone
 2. Update `docs/prompt.md`
 3. Move or refresh the active execution plan in `docs/exec-plans/`
+
+## Current State
+
+No active milestone remains in the local roadmap. M1-M5 are implemented and
+validated at `full` closure for the repository-local scope.

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/class_stats.schema.json",
+  "title": "ClassStats",
+  "type": "object",
+  "required": [
+    "thresholds_version",
+    "threshold_snapshot",
+    "total_classes",
+    "total_annotations",
+    "total_rule_issues",
+    "classes"
+  ],
+  "properties": {
+    "thresholds_version": {
+      "type": "string"
+    },
+    "threshold_snapshot": {
+      "type": "object"
+    },
+    "total_classes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_annotations": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_rule_issues": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "classes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "class_id",
+          "class_name",
+          "annotation_count",
+          "image_count",
+          "issue_count",
+          "area_min",
+          "area_max",
+          "area_mean"
+        ],
+        "properties": {
+          "class_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "class_name": {
+            "type": "string"
+          },
+          "annotation_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "image_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "issue_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "area_min": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "area_max": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "area_mean": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

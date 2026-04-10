@@ -28,6 +28,26 @@ Classify failures by where information is lost and which metric they hurt.
 - **Example instances**: add examples as they are discovered
 - **Fix level**: module or cross-module
 
+### Category 3: rule_signal_underreporting
+
+- **Impacted metric**: explicit rule error recall
+- **Layer**: rule and threshold pass
+- **Symptoms**: the rule engine stops after the first issue on an annotation and
+  fails to emit additional independent rule issues that should also surface
+- **Example instances**: `FAIL-001` in `tasks/m3-m5-full-delivery/documentation.md`
+- **Fix level**: module
+
+### Category 4: upstream_artifact_clobber
+
+- **Impacted metric**: patch traceability rate and deterministic automation
+- **Layer**: cross-module artifact lifecycle
+- **Symptoms**: a downstream stage recreates the run workspace with overwrite
+  semantics and silently clears populated upstream artifacts such as normalized
+  annotations or image indexes
+- **Example instances**: `FAIL-002` in
+  `tasks/m3-m5-full-delivery/documentation.md`
+- **Fix level**: cross-module
+
 ## How to Add a New Category
 
 1. Identify which metric dropped.

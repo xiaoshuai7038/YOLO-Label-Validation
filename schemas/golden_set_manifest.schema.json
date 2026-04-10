@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/golden_set_manifest.schema.json",
+  "title": "GoldenSetManifest",
+  "type": "object",
+  "required": [
+    "golden_set_version",
+    "dataset_version",
+    "source_run_id",
+    "selected_images",
+    "metric_kind",
+    "notes"
+  ],
+  "properties": {
+    "golden_set_version": {
+      "type": "string"
+    },
+    "dataset_version": {
+      "type": "string"
+    },
+    "source_run_id": {
+      "type": "string"
+    },
+    "selected_images": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "image_id",
+          "selection_reason",
+          "annotation_count"
+        ],
+        "properties": {
+          "image_id": {
+            "type": "string"
+          },
+          "selection_reason": {
+            "type": "string"
+          },
+          "annotation_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "metric_kind": {
+      "type": "string",
+      "enum": [
+        "measured",
+        "proxy",
+        "pending"
+      ]
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

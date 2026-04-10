@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/metrics_dashboard_source.schema.json",
+  "title": "MetricsDashboardSource",
+  "type": "object",
+  "required": [
+    "run_id",
+    "dataset_version",
+    "class_map_version",
+    "normalization_version",
+    "rules_version",
+    "thresholds_version",
+    "vlm_version",
+    "secondary_detector_version",
+    "record_counts",
+    "decision_counts",
+    "patch_counts",
+    "manual_review_coverage",
+    "patch_traceability_rate",
+    "auto_pass_sample_correctness"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "dataset_version": {
+      "type": "string"
+    },
+    "class_map_version": {
+      "type": "string"
+    },
+    "normalization_version": {
+      "type": "string"
+    },
+    "rules_version": {
+      "type": "string"
+    },
+    "thresholds_version": {
+      "type": "string"
+    },
+    "vlm_version": {
+      "type": "string"
+    },
+    "secondary_detector_version": {
+      "type": "string"
+    },
+    "record_counts": {
+      "type": "object"
+    },
+    "decision_counts": {
+      "type": "object"
+    },
+    "patch_counts": {
+      "type": "object"
+    },
+    "manual_review_coverage": {
+      "type": "object"
+    },
+    "patch_traceability_rate": {
+      "type": "object"
+    },
+    "auto_pass_sample_correctness": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}
