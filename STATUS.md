@@ -2,7 +2,8 @@
 
 ## Project
 
-YOLO Label Validation harness, remaining delivery after M2 normalization.
+YOLO Label Validation harness, now extending from local closure to production
+runtime integrations for VLM and detector stages.
 
 ## Milestone State
 
@@ -13,7 +14,8 @@ YOLO Label Validation harness, remaining delivery after M2 normalization.
 | M3 rules and thresholds | completed | regression green |
 | M4 risk, VLM, decision | completed | regression and CLI smoke green |
 | M5 refine, materialize, ops | completed | local roadmap closed |
-| long-horizon docs | completed | ready for milestone execution |
+| M6 live integrations and runtime config | completed | `slice` closure with mock-backed live runtime proof |
+| long-horizon docs | completed | updated for new target |
 
 ## Environment
 
@@ -22,20 +24,13 @@ YOLO Label Validation harness, remaining delivery after M2 normalization.
 
 ## Latest Validation
 
-- `uv run pytest -q` passed at the start of this session
-- `uv run python scripts/check_task_docs.py tasks/m2-input-normalization` passed at the start of this session
-- `uv run python scripts/check_task_docs.py tasks/m3-m5-full-delivery` passed in this session
-- `uv run pytest -q tests/test_rules.py` passed in this session
-- `uv run pytest -q tests/test_risk.py` passed in this session
-- `uv run pytest -q tests/test_vlm.py` passed in this session
-- `uv run pytest -q tests/test_decision.py` passed in this session
-- `uv run pytest -q tests/test_detector_refine.py` passed in this session
-- `uv run pytest -q tests/test_materialize.py` passed in this session
-- `uv run pytest -q` passed after full M3-M5 delivery in this session
-- staged CLI smoke passed for `normalize-yolo`, `run-rules`, `run-risk`,
-  `run-vlm`, `run-decision`, `run-detector-refine`, and `run-materialize`
+- `uv run pytest -q`
+- `uv run python scripts/check_task_docs.py tasks/production-vlm-detector-integration`
+- mocked CLI smoke for `run-vlm --runtime-config ...` and
+  `run-detector-refine --runtime-config ...`
 
 ## Current Focus
 
-Keep the repository in a verified closeout state after the completed M1-M5
-local roadmap delivery.
+No active code milestone remains in the repository roadmap. The only remaining
+gap is true credentialed execution against the user's endpoint key and detector
+weights.

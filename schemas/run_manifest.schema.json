@@ -96,6 +96,39 @@
       },
       "additionalProperties": false
     },
+    "runtime_context": {
+      "type": "object",
+      "properties": {
+        "runtime_config_version": {
+          "type": "string"
+        },
+        "runtime_config_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "defaults_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "thresholds_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vlm": {
+          "type": "object"
+        },
+        "detector": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
     "notes": {
       "type": "array",
       "items": {

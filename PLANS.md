@@ -7,7 +7,7 @@ Live index of execution plans for this repository.
 
 ## Active
 
-- No active execution plan. The local M1-M5 roadmap is currently complete.
+- none
 
 ## Completed
 
@@ -23,6 +23,8 @@ Live index of execution plans for this repository.
 - `docs/exec-plans/completed/EP-004-refine-materialize-ops.md`
   Detector proposals, materialization, and run-level ops artifacts completed at
   `full` closure.
+- `docs/exec-plans/completed/EP-005-production-integrations.md`
+  Production VLM and detector integrations completed at `slice` closure.
 
 ## Rules
 

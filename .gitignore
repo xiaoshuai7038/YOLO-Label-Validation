@@ -23,3 +23,5 @@ Thumbs.db
 
 artifacts/runs/*
 !artifacts/runs/.gitkeep
+artifacts/models/*
+!artifacts/models/.gitkeep

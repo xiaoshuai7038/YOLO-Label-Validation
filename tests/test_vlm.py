@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
+import threading
 
 import pytest
 
@@ -17,6 +20,76 @@ from .support import build_risk_ready_run, write_json
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _runtime_config_payload(*, base_url: str) -> dict[str, object]:
+    return {
+        "version": "runtime_integration_v1",
+        "defaults_file": "configs/defaults.json",
+        "thresholds_file": "configs/thresholds.example.yaml",
+        "vlm": {
+            "mode": "live",
+            "provider": "openai_compatible",
+            "base_url": base_url,
+            "endpoint_path": "/chat/completions",
+            "api_key_env": "TEST_VLM_API_KEY",
+            "model": "mock-live-vlm",
+            "timeout_seconds": 15,
+            "max_retries": 0,
+            "temperature": 0.0,
+            "response_format": "json_object",
+            "max_tokens": 256,
+            "image_transport": "data_url",
+            "system_prompt": "Return JSON only.",
+        },
+        "detector": {
+            "mode": "proxy",
+            "family": "ultralytics",
+            "weights_path": "artifacts/models/yolo11n.pt",
+            "device": "cpu",
+            "confidence_threshold": 0.25,
+            "iou_threshold": 0.45,
+            "max_det": 100,
+            "refine_match_iou": 0.1,
+            "missing_match_iou": 0.1,
+        },
+    }
+
+
+@contextmanager
+def _mock_vlm_server(response_payload: dict[str, object]):
+    captured_requests: list[dict[str, object]] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            content_length = int(self.headers.get("Content-Length", "0"))
+            body = self.rfile.read(content_length).decode("utf-8")
+            captured_requests.append(
+                {
+                    "path": self.path,
+                    "headers": dict(self.headers),
+                    "payload": json.loads(body),
+                }
+            )
+            encoded = json.dumps(response_payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+
+        def log_message(self, format: str, *args: object) -> None:  # noqa: A003
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}", captured_requests
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
 
 
 def test_build_vlm_requests_and_parse_reviews_are_deterministic(tmp_path) -> None:
@@ -181,3 +254,56 @@ def test_cli_run_vlm_writes_review_outputs(tmp_path, capsys) -> None:
     assert payload["request_count"] == 1
     assert payload["review_count"] == 1
     assert (run_dir / "vlm_review.json").exists()
+
+
+def test_run_vlm_for_directory_supports_live_http(tmp_path, monkeypatch) -> None:
+    run_dir = build_risk_ready_run(tmp_path)
+    monkeypatch.setenv("TEST_VLM_API_KEY", "fixture-secret")
+    server_response = {
+        "id": "chatcmpl-test",
+        "model": "mock-live-vlm",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": json.dumps(
+                        {
+                            "decision": "keep",
+                            "class_ok": True,
+                            "box_ok": True,
+                            "new_class_name": None,
+                            "need_refine_box": False,
+                            "need_add_missing": False,
+                            "missing_candidates": [],
+                            "reason": "live endpoint accepted the current label",
+                            "reason_code": "VLM_LIVE_KEEP",
+                            "confidence": 0.98,
+                        }
+                    ),
+                },
+                "finish_reason": "stop",
+            }
+        ],
+    }
+
+    with _mock_vlm_server(server_response) as (base_url, captured_requests):
+        outputs = run_vlm_for_directory(
+            run_dir,
+            defaults_file=ROOT / "configs" / "defaults.json",
+            runtime_config_payload=_runtime_config_payload(base_url=base_url),
+            overwrite=True,
+        )
+
+    assert len(captured_requests) == 1
+    request_payload = captured_requests[0]["payload"]
+    assert request_payload["model"] == "mock-live-vlm"
+    assert captured_requests[0]["headers"]["Authorization"] == "Bearer fixture-secret"
+    assert any(
+        part["type"] == "image_url" and part["image_url"]["url"].startswith("data:image/png;base64,")
+        for part in request_payload["messages"][1]["content"]
+    )
+    assert outputs["vlm_review"][0]["metric_kind"] == "measured"
+    manifest = load_run_artifact(run_dir, "run_manifest")
+    assert manifest["runtime_context"]["vlm"]["mode"] == "live"
+    assert manifest["vlm_version"] == "mock-live-vlm"

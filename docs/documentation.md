@@ -6,6 +6,45 @@ file and archive older ones if needed.
 ## Log
 
 ### Iteration: 2026-04-10
+- **Milestone**: M6
+- **Change**: implemented a committed runtime integration config, live
+  OpenAI-compatible multimodal VLM transport with local-image data URLs, live
+  Ultralytics detector integration with manifest runtime propagation, and
+  mock-backed regression plus CLI smoke coverage
+- **Files modified**: `configs/runtime.integration.json`,
+  `src/yolo_label_validation/runtime_config.py`,
+  `src/yolo_label_validation/vlm.py`,
+  `src/yolo_label_validation/detector_refine.py`,
+  `src/yolo_label_validation/cli.py`,
+  `src/yolo_label_validation/contracts.py`,
+  `schemas/runtime_integration.schema.json`,
+  `schemas/run_manifest.schema.json`,
+  `tests/test_runtime_config.py`,
+  `tests/test_vlm.py`,
+  `tests/test_detector_refine.py`,
+  `tasks/production-vlm-detector-integration/`,
+  `docs/plan.md`,
+  `docs/prompt.md`,
+  `PLANS.md`,
+  `STATUS.md`
+- **Verification result**: pass (`uv run pytest -q tests/test_runtime_config.py tests/test_vlm.py tests/test_detector_refine.py`,
+  `uv run pytest -q`,
+  `uv run python scripts/check_task_docs.py tasks/production-vlm-detector-integration`,
+  mocked CLI smoke for live `run-vlm` and live `run-detector-refine`)
+- **Decision**: complete at `slice`
+- **Next step**: wait for environment-specific credentialed smoke with real API
+  key and detector weights
+
+### Iteration: 2026-04-10
+- **Milestone**: Closeout docs
+- **Change**: added a Mermaid sequence diagram for the end-to-end YOLO label
+  validation flow so the CLI-to-artifact lifecycle is visible in one place
+- **Files modified**: `docs/architecture.md`, `docs/documentation.md`
+- **Verification result**: n/a (documentation-only update)
+- **Decision**: continue
+- **Next step**: none
+
+### Iteration: 2026-04-10
 - **Milestone**: M5
 - **Change**: implemented detector-backed refine/add proposal artifacts,
   patch-applied materialization, run summaries, metrics export, and the

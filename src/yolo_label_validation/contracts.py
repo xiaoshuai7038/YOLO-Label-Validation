@@ -216,6 +216,7 @@ class RunManifest:
     artifacts: dict[str, str] = field(default_factory=dict)
     input_sources: list[dict[str, Any]] = field(default_factory=list)
     record_counts: dict[str, int] = field(default_factory=dict)
+    runtime_context: dict[str, Any] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -235,5 +236,6 @@ class RunManifest:
             "artifacts": self.artifacts,
             "input_sources": self.input_sources,
             "record_counts": self.record_counts,
+            "runtime_context": self.runtime_context,
             "notes": self.notes,
         }

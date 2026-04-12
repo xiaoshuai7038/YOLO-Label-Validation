@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/runtime_integration.schema.json",
+  "title": "RuntimeIntegrationConfig",
+  "type": "object",
+  "required": [
+    "version",
+    "vlm",
+    "detector"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "defaults_file": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "thresholds_file": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "vlm": {
+      "type": "object",
+      "required": [
+        "mode",
+        "provider",
+        "base_url",
+        "endpoint_path",
+        "model",
+        "timeout_seconds",
+        "max_retries",
+        "temperature",
+        "response_format",
+        "max_tokens",
+        "image_transport",
+        "system_prompt"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "fixture",
+            "live"
+          ]
+        },
+        "provider": {
+          "type": "string"
+        },
+        "base_url": {
+          "type": "string"
+        },
+        "endpoint_path": {
+          "type": "string"
+        },
+        "api_key_env": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model": {
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "type": "number",
+          "minimum": 1.0
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 2.0
+        },
+        "response_format": {
+          "type": "string",
+          "enum": [
+            "json_object",
+            "none"
+          ]
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "image_transport": {
+          "type": "string",
+          "enum": [
+            "data_url"
+          ]
+        },
+        "system_prompt": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "detector": {
+      "type": "object",
+      "required": [
+        "mode",
+        "family",
+        "weights_path",
+        "device",
+        "confidence_threshold",
+        "iou_threshold",
+        "max_det",
+        "refine_match_iou",
+        "missing_match_iou"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "proxy",
+            "live"
+          ]
+        },
+        "family": {
+          "type": "string"
+        },
+        "weights_path": {
+          "type": "string"
+        },
+        "device": {
+          "type": "string"
+        },
+        "confidence_threshold": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "iou_threshold": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "max_det": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "refine_match_iou": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "missing_match_iou": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

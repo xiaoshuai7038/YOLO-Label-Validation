@@ -58,6 +58,64 @@ flowchart LR
     I --> H
 ```
 
+## YOLO Validation Sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Operator
+    participant CLI as run_cli.py / cli.py
+    participant YOLO as YOLO Images + Labels
+    participant Ingest as ingest.py
+    participant Rules as rules.py
+    participant Risk as risk.py
+    participant VLM as vlm.py
+    participant Detector as detector_refine.py
+    participant Decision as decision.py
+    participant Materialize as materialize.py
+    participant RunDir as artifacts/runs/<run_id>
+
+    Operator->>CLI: normalize-yolo --images-dir --labels-dir --class-names-file
+    CLI->>Ingest: parse YOLO txt and image sizes
+    Ingest->>YOLO: read images, labels, classes
+    Ingest->>RunDir: write normalized_annotations.jsonl
+    Ingest->>RunDir: write image_index.json, class_map.json, run_manifest.json
+
+    Operator->>CLI: run-rules --run-dir
+    CLI->>Rules: load normalized internal contracts
+    Rules->>RunDir: write rule_issues.json
+    Rules->>RunDir: write class_stats.json
+    Rules->>RunDir: write golden_set_manifest.json and golden_eval_report.json
+
+    Operator->>CLI: run-risk --run-dir
+    CLI->>Risk: fuse rule and class-level signals
+    Risk->>RunDir: write risk_scores.json
+    Risk->>RunDir: write review_candidates.json
+
+    Operator->>CLI: run-vlm --run-dir --responses-file
+    CLI->>VLM: build structured requests for risky annotations
+    VLM->>RunDir: write vlm_requests.jsonl
+    VLM->>RunDir: write vlm_raw_responses.jsonl
+    VLM->>RunDir: write vlm_review.json
+
+    Operator->>CLI: run-detector-refine --run-dir
+    CLI->>Detector: build refine and add-missing proposals
+    Detector->>RunDir: write refine_results.json
+    Detector->>RunDir: write missing_results.json
+
+    Operator->>CLI: run-decision --run-dir
+    CLI->>Decision: merge rules, risk, VLM, detector evidence
+    Decision->>RunDir: write decision_results.json
+    Decision->>RunDir: write patches.json
+    Decision->>RunDir: write manual_review_queue.json
+
+    Operator->>CLI: run-materialize --run-dir
+    CLI->>Materialize: apply patches to a derived dataset view
+    Materialize->>RunDir: write materialized_dataset/
+    Materialize->>RunDir: write run_summary.json
+    Materialize->>RunDir: write metrics_dashboard_source.json
+```
+
 ## Bootstrap Decision
 
 The first committed code only implements scaffold bootstrap.

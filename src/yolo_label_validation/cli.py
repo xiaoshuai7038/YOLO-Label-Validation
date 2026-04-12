@@ -97,11 +97,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     run_vlm = subparsers.add_parser(
         "run-vlm",
-        help="Build deterministic VLM requests and parse structured response fixtures.",
+        help="Build VLM requests and parse either fixture responses or live OpenAI-compatible multimodal responses.",
     )
     run_vlm.add_argument("--run-dir", required=True)
     run_vlm.add_argument("--responses-file", default=None)
     run_vlm.add_argument("--defaults-file", default=None)
+    run_vlm.add_argument("--runtime-config", default=None)
     run_vlm.add_argument("--overwrite", action="store_true")
 
     run_decision = subparsers.add_parser(
@@ -114,10 +115,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     run_detector_refine = subparsers.add_parser(
         "run-detector-refine",
-        help="Build deterministic detector-backed refine and missing-object proposals.",
+        help="Build detector-backed refine and missing-object proposals from either proxy logic or live Ultralytics inference.",
     )
     run_detector_refine.add_argument("--run-dir", required=True)
     run_detector_refine.add_argument("--thresholds-file", default=None)
+    run_detector_refine.add_argument("--runtime-config", default=None)
     run_detector_refine.add_argument("--overwrite", action="store_true")
 
     run_materialize = subparsers.add_parser(
@@ -255,6 +257,7 @@ def _handle_run_vlm(args: argparse.Namespace) -> int:
         Path(args.run_dir),
         responses_file=Path(args.responses_file) if args.responses_file else None,
         defaults_file=Path(args.defaults_file) if args.defaults_file else None,
+        runtime_config_file=Path(args.runtime_config) if args.runtime_config else None,
         overwrite=args.overwrite,
     )
     print(
@@ -295,6 +298,7 @@ def _handle_run_detector_refine(args: argparse.Namespace) -> int:
     outputs = run_detector_refine_for_directory(
         Path(args.run_dir),
         thresholds_file=Path(args.thresholds_file) if args.thresholds_file else None,
+        runtime_config_file=Path(args.runtime_config) if args.runtime_config else None,
         overwrite=args.overwrite,
     )
     print(

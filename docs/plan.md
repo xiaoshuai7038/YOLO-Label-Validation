@@ -11,131 +11,55 @@ Current milestone marked with `->` when one is active.
 | M3 | Build FR-003/FR-004/FR-005 golden set, rules, and thresholds | completed | M2 |
 | M4 | Build FR-006/FR-007/FR-008/FR-009 risk, VLM review, and decision engine | completed | M3 |
 | M5 | Build FR-010/FR-011/FR-012/FR-013/FR-015/FR-016 detector refine, CVAT, materialization, and ops | completed | M4 |
+| M6 | Build production VLM and detector integrations plus runtime config | completed | M5 |
 
 ---
 
-## M1: Bootstrap harness docs, schemas, and run scaffold
+## Completed Through M6
 
-**Goal**: convert the empty repository into a harness-first codebase with
-stable contracts, task execution docs, and a runnable bootstrap CLI.
-
-**Scope**: top-level docs, task docs, schemas, bootstrap code, doc gate, smoke tests
-
-**Deliverables**:
-- [x] `AGENTS.md`, `PLANS.md`, and `docs/` control plane created
-- [x] bootstrap CLI creates canonical run artifact files
-- [x] `tasks/` doc layer, task-doc gate, and CI quality gate created
-
-**Verification**:
-
-```powershell
-pytest -q
-```
-
-**Done When**:
-- repository has a stable artifact contract and execution-plan structure
-- bootstrap run initialization works through tests
-- all verification commands pass
+M1 through M6 are implemented. The repository now reaches `slice` closure for
+the production-integration target: live runtime code paths exist, the config is
+centralized, tests are green, and CLI smoke is mock-backed rather than
+fixture-only.
 
 ---
 
-## M2: Build FR-001/FR-002 input normalization and run manifests
+## M6 Completed: Build production VLM and detector integrations plus runtime config
 
-**Goal**: ingest YOLO txt and COCO JSON into one internal contract with
-source-to-normalized traceability and versioned run manifests.
+**Goal**: replace the former VLM fixture path and detector stub path with
+production-oriented runtime integrations while keeping the same artifact
+contracts and deterministic offline tests.
 
-**Scope**: ingest parser, normalized JSONL writer, image index, class map,
-source lineage, run-manifest fidelity
-
-**Deliverables**:
-- [x] parse YOLO txt and COCO JSON into one `normalized_annotations.jsonl`
-- [x] emit `image_index.json`, `class_map.json`, and lineage fields for each ann
-- [x] reject ambiguous or inconsistent class-map definitions
-
-**Verification**:
-
-```powershell
-pytest -q
-```
-
-**Done When**:
-- sample fixtures can be normalized from both source formats
-- every normalized annotation can be traced back to its raw source record
-- all verification commands pass
-
-## M3: Build FR-003/FR-004/FR-005 golden set, rules, and thresholds
-
-**Goal**: establish explicit rule validation and thresholded statistics before
-any model-assisted review.
-
-**Scope**: golden-set manifest, rule checks, class stats, thresholds
+**Scope**: runtime integration config, live VLM transport, live detector
+inference, version/config propagation, docs, and tests
 
 **Deliverables**:
-- [x] implement explicit invalid-box and invalid-class checks
-- [x] emit class-level stats and threshold snapshots
-- [x] attach issue type, severity, and auto-action hints to every rule issue
+- [x] load one runtime config file that centralizes user-decided integration parameters
+- [x] execute real OpenAI-compatible multimodal VLM requests from local run data
+- [x] execute real Ultralytics detector inference for refine/add proposals
+- [x] preserve fixture mode and green regression for offline development
 
 **Verification**:
 
 ```powershell
 uv run pytest -q
+uv run python scripts/check_task_docs.py tasks/production-vlm-detector-integration
 ```
 
-**Done When**:
-- explicit rule violations are surfaced with reasons
-- threshold loads are versioned and deterministic
+**Result**:
+- live integration code paths are implemented and test-covered
+- runtime configuration is explicit and auditable
+- no automatic action loses traceability or reason codes
 - all verification commands pass
+- remaining gap is limited to true credentialed runtime smoke with external
+  secrets and weights
 
 ---
 
-## M4: Build FR-006/FR-007/FR-008/FR-009 risk, VLM review, and decision engine
+## Next
 
-**Goal**: rank risky annotations, review them with a structured VLM protocol,
-and produce deterministic actions.
-
-**Scope**: risk fusion, VLM request/response pipeline, decision engine, patches
-
-**Deliverables**:
-- [x] emit candidate rankings with configurable fusion policy
-- [x] parse only schema-valid VLM JSON responses
-- [x] output deterministic `decision_results.json` and `patches.json`
-
-**Verification**:
-
-```powershell
-uv run pytest -q
-```
-
-**Done When**:
-- candidate reasons and VLM decisions are machine-readable
-- automatic actions always contain evidence and reason codes
-- all verification commands pass
-
----
-
-## M5: Build FR-010/FR-011/FR-012/FR-013/FR-015/FR-016 detector refine, CVAT, materialization, and ops
-
-**Goal**: close the loop with detector-backed geometry changes, manual review,
-materialized exports, and audit summaries.
-
-**Scope**: refine/add flows, manual queue, CVAT bridge, materialization, run
-summary, metrics
-
-**Deliverables**:
-- [x] accept or reject detector-backed refine/add proposals with reasons
-- [x] emit manual review tasks with full evidence context
-- [x] materialize patch-applied dataset versions and run-level summaries
-
-**Verification**:
-
-```powershell
-pytest -q
-```
-
-**Done When**:
-- all automatic and manual outcomes are traceable through patches
-- the system can export a new dataset view without mutating source labels
-- all verification commands pass
+No active repository milestone is open. Any further work belongs to
+environment-specific live validation or future scope expansion.
 
 ---
 
@@ -153,8 +77,3 @@ After promotion:
 1. Move `->` to the next milestone
 2. Update `docs/prompt.md`
 3. Move or refresh the active execution plan in `docs/exec-plans/`
-
-## Current State
-
-No active milestone remains in the local roadmap. M1-M5 are implemented and
-validated at `full` closure for the repository-local scope.

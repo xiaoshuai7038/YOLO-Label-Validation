@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import base64
 import json
+import mimetypes
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+from urllib import error, request as urllib_request
 
-from .artifact_io import write_run_artifact, load_run_artifact
+from .artifact_io import load_run_artifact, write_run_artifact
 from .risk import load_defaults_config
+from .runtime_config import (
+    load_runtime_config,
+    resolve_required_env,
+    runtime_config_reference,
+)
 
 
 REQUIRED_VLM_RESPONSE_FIELDS = (
@@ -20,6 +28,8 @@ REQUIRED_VLM_RESPONSE_FIELDS = (
     "reason_code",
     "confidence",
 )
+VALID_METRIC_KINDS = {"measured", "proxy", "pending"}
+VLMTransport = Callable[[str, dict[str, str], dict[str, Any], float], dict[str, Any]]
 
 
 def build_vlm_requests(
@@ -193,7 +203,7 @@ def parse_vlm_reviews(
                 "reason": reason,
                 "reason_code": reason_code,
                 "confidence": confidence,
-                "metric_kind": "proxy",
+                "metric_kind": _validated_metric_kind(raw_response.get("metric_kind")),
             }
         )
     return parsed_reviews
@@ -204,9 +214,17 @@ def run_vlm_for_directory(
     *,
     responses_file: Path | None = None,
     defaults_file: Path | None = None,
+    runtime_config_file: Path | None = None,
+    runtime_config_payload: dict[str, Any] | None = None,
+    transport: VLMTransport | None = None,
     overwrite: bool = False,
 ) -> dict[str, Any]:
     defaults_config = load_defaults_config(defaults_file)
+    runtime_config = (
+        load_runtime_config(runtime_config_file, payload=runtime_config_payload)
+        if runtime_config_file is not None or runtime_config_payload is not None
+        else None
+    )
     run_manifest = load_run_artifact(run_dir, "run_manifest")
     normalized_annotations = load_run_artifact(run_dir, "normalized_annotations")
     image_index = load_run_artifact(run_dir, "image_index")
@@ -216,7 +234,13 @@ def run_vlm_for_directory(
     rule_issues = load_run_artifact(run_dir, "rule_issues")
 
     vlm_config = defaults_config.get("vlm", {})
+    runtime_vlm = runtime_config["vlm"] if runtime_config is not None else None
     decision_enum = list(vlm_config.get("decision_enum", []))
+    model_name = (
+        runtime_vlm["model"]
+        if runtime_vlm is not None
+        else str(run_manifest.get("vlm_version") or vlm_config.get("model", "qwen2.5-vl"))
+    )
     requests = build_vlm_requests(
         review_candidates,
         normalized_annotations,
@@ -224,17 +248,45 @@ def run_vlm_for_directory(
         class_map,
         risk_scores,
         rule_issues,
-        model=str(run_manifest.get("vlm_version") or vlm_config.get("model", "qwen2.5-vl")),
+        model=model_name,
         decision_enum=decision_enum,
     )
-    raw_responses = _load_external_records(responses_file) if responses_file is not None else []
-    normalized_raw_responses = _normalize_raw_responses(raw_responses, requests)
+
+    if responses_file is not None:
+        normalized_raw_responses = _normalize_raw_responses(
+            _load_external_records(responses_file),
+            requests,
+        )
+        active_mode = "fixture"
+    elif runtime_vlm is not None and runtime_vlm["mode"] == "live":
+        normalized_raw_responses = _execute_live_vlm_requests(
+            requests,
+            run_manifest=run_manifest,
+            runtime_config=runtime_config,
+            runtime_config_file=runtime_config_file,
+            transport=transport,
+        )
+        active_mode = "live"
+    else:
+        normalized_raw_responses = []
+        active_mode = runtime_vlm["mode"] if runtime_vlm is not None else "fixture"
+
     reviews = parse_vlm_reviews(
         normalized_raw_responses,
         requests,
         class_map,
         decision_enum=decision_enum,
     ) if normalized_raw_responses else []
+
+    if runtime_config is not None:
+        _write_vlm_runtime_context(
+            run_dir,
+            run_manifest,
+            runtime_config,
+            runtime_config_file=runtime_config_file,
+            active_mode=active_mode,
+            model_name=model_name,
+        )
 
     write_run_artifact(run_dir, "vlm_requests", requests, overwrite=overwrite)
     write_run_artifact(run_dir, "vlm_raw_responses", normalized_raw_responses, overwrite=overwrite)
@@ -267,7 +319,7 @@ def _coerce_response_payload(raw_response: dict[str, Any]) -> dict[str, Any]:
         payload = {
             key: value
             for key, value in raw_response.items()
-            if key not in {"request_id", "image_id", "ann_id"}
+            if key not in {"request_id", "image_id", "ann_id", "metric_kind", "provider_response", "provider", "model"}
         }
 
     if not isinstance(payload, dict):
@@ -311,14 +363,15 @@ def _normalize_raw_responses(
             if single_request_id is None:
                 raise ValueError("request_id is required when multiple VLM requests exist")
             request_id = single_request_id
-        request = request_lookup.get(str(request_id))
-        if request is None:
+        request_payload = request_lookup.get(str(request_id))
+        if request_payload is None:
             raise ValueError(f"unknown VLM request_id in raw response: {request_id}")
 
         record: dict[str, Any] = {
-            "request_id": request["request_id"],
-            "image_id": request["image_id"],
-            "ann_id": request["ann_id"],
+            "request_id": request_payload["request_id"],
+            "image_id": request_payload["image_id"],
+            "ann_id": request_payload["ann_id"],
+            "metric_kind": _validated_metric_kind(raw_response.get("metric_kind")),
         }
         if "response" in raw_response:
             record["response"] = raw_response["response"]
@@ -328,10 +381,275 @@ def _normalize_raw_responses(
             record["response"] = {
                 key: value
                 for key, value in raw_response.items()
-                if key != "request_id"
+                if key not in {"request_id", "metric_kind"}
             }
         normalized_records.append(record)
     return normalized_records
+
+
+def _execute_live_vlm_requests(
+    requests: list[dict[str, Any]],
+    *,
+    run_manifest: dict[str, Any],
+    runtime_config: dict[str, Any],
+    runtime_config_file: Path | None,
+    transport: VLMTransport | None,
+) -> list[dict[str, Any]]:
+    if not requests:
+        return []
+
+    vlm_runtime = runtime_config["vlm"]
+    api_key = resolve_required_env(vlm_runtime.get("api_key_env"), label="live VLM")
+    url = _build_chat_completions_url(vlm_runtime["base_url"], vlm_runtime["endpoint_path"])
+    timeout_seconds = float(vlm_runtime["timeout_seconds"])
+    max_retries = int(vlm_runtime["max_retries"])
+    transport_fn = transport or _default_vlm_transport
+
+    normalized_records: list[dict[str, Any]] = []
+    for request_payload in requests:
+        image_path = _resolve_request_image_path(run_manifest, request_payload)
+        provider_response = _execute_live_vlm_request(
+            url=url,
+            api_key=api_key,
+            request_payload=request_payload,
+            runtime_config=runtime_config,
+            image_path=image_path,
+            timeout_seconds=timeout_seconds,
+            max_retries=max_retries,
+            transport=transport_fn,
+        )
+        response_text = _extract_chat_completion_text(provider_response)
+        normalized_records.append(
+            {
+                "request_id": request_payload["request_id"],
+                "image_id": request_payload["image_id"],
+                "ann_id": request_payload["ann_id"],
+                "response_text": response_text,
+                "metric_kind": "measured",
+                "provider": vlm_runtime["provider"],
+                "model": str(provider_response.get("model") or vlm_runtime["model"]),
+                "provider_response": provider_response,
+            }
+        )
+    return normalized_records
+
+
+def _execute_live_vlm_request(
+    *,
+    url: str,
+    api_key: str,
+    request_payload: dict[str, Any],
+    runtime_config: dict[str, Any],
+    image_path: Path,
+    timeout_seconds: float,
+    max_retries: int,
+    transport: VLMTransport,
+) -> dict[str, Any]:
+    vlm_runtime = runtime_config["vlm"]
+    request_body = _build_chat_completions_payload(
+        request_payload,
+        runtime_config=runtime_config,
+        image_path=image_path,
+    )
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    last_error: Exception | None = None
+    for attempt in range(max_retries + 1):
+        try:
+            return transport(url, headers, request_body, timeout_seconds)
+        except Exception as exc:  # pragma: no cover - retried branches depend on injected failures
+            last_error = exc
+            if attempt >= max_retries:
+                raise RuntimeError(
+                    f"live VLM request failed after {max_retries + 1} attempts for {request_payload['request_id']}"
+                ) from exc
+    raise RuntimeError(
+        f"live VLM request failed without a captured exception for {request_payload['request_id']}"
+    ) from last_error
+
+
+def _build_chat_completions_payload(
+    request_payload: dict[str, Any],
+    *,
+    runtime_config: dict[str, Any],
+    image_path: Path,
+) -> dict[str, Any]:
+    vlm_runtime = runtime_config["vlm"]
+    payload: dict[str, Any] = {
+        "model": vlm_runtime["model"],
+        "temperature": vlm_runtime["temperature"],
+        "max_tokens": vlm_runtime["max_tokens"],
+        "stream": False,
+        "messages": [
+            {
+                "role": "system",
+                "content": vlm_runtime["system_prompt"],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": _build_live_user_prompt(request_payload),
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": _image_path_to_data_url(image_path),
+                        },
+                    },
+                ],
+            },
+        ],
+    }
+    if vlm_runtime["response_format"] == "json_object":
+        payload["response_format"] = {"type": "json_object"}
+    return payload
+
+
+def _build_live_user_prompt(request_payload: dict[str, Any]) -> str:
+    envelope = {
+        "task": "Validate one fixed-class 2D detection annotation and return one JSON object only.",
+        "instructions": [
+            "Use exactly one decision from allowed_decisions.",
+            "Keep new_class_name null unless the decision is relabel.",
+            "Keep missing_candidates as an empty array unless the decision is add_missing.",
+            "Do not add markdown fences or explanatory prose outside the JSON object.",
+        ],
+        "request": request_payload,
+    }
+    return json.dumps(envelope, ensure_ascii=False)
+
+
+def _default_vlm_transport(
+    url: str,
+    headers: dict[str, str],
+    payload: dict[str, Any],
+    timeout_seconds: float,
+) -> dict[str, Any]:
+    http_request = urllib_request.Request(
+        url=url,
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urllib_request.urlopen(http_request, timeout=timeout_seconds) as response:
+            body = response.read().decode("utf-8")
+    except error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"VLM HTTP {exc.code}: {detail}") from exc
+    except error.URLError as exc:
+        raise RuntimeError(f"VLM transport error: {exc.reason}") from exc
+
+    try:
+        provider_response = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("VLM endpoint returned non-JSON content") from exc
+    if not isinstance(provider_response, dict):
+        raise RuntimeError("VLM endpoint response must be a JSON object")
+    return provider_response
+
+
+def _build_chat_completions_url(base_url: str, endpoint_path: str) -> str:
+    normalized_base = base_url.rstrip("/")
+    normalized_path = endpoint_path if endpoint_path.startswith("/") else f"/{endpoint_path}"
+    return f"{normalized_base}{normalized_path}"
+
+
+def _resolve_request_image_path(
+    run_manifest: dict[str, Any],
+    request_payload: dict[str, Any],
+) -> Path:
+    source_id = request_payload["image_id"].split(":", 1)[0]
+    relative_path = Path(request_payload["image_reference"]["relative_path"])
+    for source in run_manifest.get("input_sources", []):
+        if source.get("source_id") != source_id:
+            continue
+        images_dir = source.get("images_dir")
+        if not images_dir:
+            raise ValueError(f"input source {source_id} does not expose images_dir for live VLM")
+        image_path = Path(images_dir) / relative_path
+        if image_path.exists():
+            return image_path
+        raise ValueError(f"live VLM image path does not exist: {image_path}")
+    raise ValueError(f"cannot resolve live VLM image path for source_id {source_id}")
+
+
+def _image_path_to_data_url(image_path: Path) -> str:
+    mime_type = mimetypes.guess_type(image_path.name)[0] or "application/octet-stream"
+    encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
+    return f"data:{mime_type};base64,{encoded}"
+
+
+def _extract_chat_completion_text(provider_response: dict[str, Any]) -> str:
+    choices = provider_response.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise RuntimeError("VLM endpoint response does not include choices[0]")
+    first_choice = choices[0]
+    if not isinstance(first_choice, dict):
+        raise RuntimeError("VLM endpoint choice payload must be an object")
+    message = first_choice.get("message")
+    if not isinstance(message, dict):
+        raise RuntimeError("VLM endpoint choice must include a message object")
+    content = message.get("content")
+    if isinstance(content, str):
+        text = content
+    elif isinstance(content, list):
+        text_parts: list[str] = []
+        for item in content:
+            if isinstance(item, dict) and item.get("type") == "text" and isinstance(item.get("text"), str):
+                text_parts.append(item["text"])
+        text = "\n".join(part for part in text_parts if part.strip())
+    else:
+        raise RuntimeError("VLM endpoint message content must be text or a text-part array")
+    cleaned = _strip_code_fences(text).strip()
+    if not cleaned:
+        raise RuntimeError("VLM endpoint returned empty message content")
+    return cleaned
+
+
+def _strip_code_fences(text: str) -> str:
+    stripped = text.strip()
+    if not stripped.startswith("```"):
+        return stripped
+    lines = stripped.splitlines()
+    if len(lines) >= 3 and lines[-1].strip() == "```":
+        return "\n".join(lines[1:-1]).strip()
+    return stripped
+
+
+def _write_vlm_runtime_context(
+    run_dir: Path,
+    run_manifest: dict[str, Any],
+    runtime_config: dict[str, Any],
+    *,
+    runtime_config_file: Path | None,
+    active_mode: str,
+    model_name: str,
+) -> None:
+    runtime_context = dict(run_manifest.get("runtime_context") or {})
+    runtime_context.update(
+        runtime_config_reference(
+            runtime_config,
+            config_path=runtime_config_file,
+        )
+    )
+    runtime_context["vlm"] = {
+        "mode": active_mode,
+        "provider": runtime_config["vlm"]["provider"],
+        "base_url": runtime_config["vlm"]["base_url"],
+        "endpoint_path": runtime_config["vlm"]["endpoint_path"],
+        "api_key_env": runtime_config["vlm"]["api_key_env"],
+        "model": model_name,
+        "response_format": runtime_config["vlm"]["response_format"],
+    }
+    run_manifest["runtime_context"] = runtime_context
+    run_manifest["vlm_version"] = model_name
+    write_run_artifact(run_dir, "run_manifest", run_manifest, overwrite=True)
 
 
 def _validated_bool(payload: dict[str, Any], key: str) -> bool:
@@ -402,3 +720,11 @@ def _validated_missing_candidates(
             }
         )
     return candidates
+
+
+def _validated_metric_kind(value: Any) -> str:
+    if value is None:
+        return "proxy"
+    if not isinstance(value, str) or value not in VALID_METRIC_KINDS:
+        raise ValueError(f"metric_kind must be one of {sorted(VALID_METRIC_KINDS)}")
+    return value
