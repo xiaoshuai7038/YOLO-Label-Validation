@@ -209,7 +209,7 @@ class RunManifest:
     normalization_version: str = "ingest_v1"
     primary_model_version: str = "prelabel_model_v1"
     secondary_detector_version: str = "detector_b_v0"
-    vlm_version: str = "qwen2.5-vl"
+    vlm_version: str = "codex-config-default"
     rules_version: str = "rules_v1"
     thresholds_version: str = "th_v1"
     created_at: str = field(default_factory=utc_now_iso)

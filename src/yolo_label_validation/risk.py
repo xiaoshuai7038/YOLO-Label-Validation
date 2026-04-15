@@ -21,7 +21,11 @@ def load_defaults_config(
             "candidate_sampling": {
                 "image_top_ratio": 0.1,
                 "annotation_top_ratio": 0.2,
-            }
+                "review_all_zero_annotation_images": True,
+            },
+            "vlm": {
+                "image_decision_enum": ["keep", "add_missing", "uncertain"],
+            },
         }
     return json.loads(config_path.read_text(encoding="utf-8"))
 
@@ -30,6 +34,7 @@ def build_risk_scores(
     normalized_annotations: list[dict[str, Any]],
     rule_issues: list[dict[str, Any]],
     class_stats: dict[str, Any],
+    image_index: dict[str, Any],
 ) -> list[dict[str, Any]]:
     issue_counts = defaultdict(int)
     for issue in rule_issues:
@@ -72,6 +77,7 @@ def build_risk_scores(
 
         risk_scores.append(
             {
+                "review_scope": "annotation",
                 "image_id": annotation["image_id"],
                 "ann_id": ann_id,
                 "class_id": annotation["class_id"],
@@ -84,6 +90,7 @@ def build_risk_scores(
                     "rule_issue_count": issue_count,
                     "class_rarity_score": round(class_rarity, 6),
                     "area_risk_score": round(area_risk, 6),
+                    "annotation_count": 1,
                 },
             }
         )
@@ -91,13 +98,47 @@ def build_risk_scores(
 
     image_score_lookup: dict[str, float] = {}
     for image_id, annotation_ids in image_annotations.items():
-        image_risks = [row["risk_score"] for row in risk_scores if row["ann_id"] in annotation_ids]
+        image_risks = [
+            row["risk_score"]
+            for row in risk_scores
+            if row["review_scope"] == "annotation" and row["ann_id"] in annotation_ids
+        ]
         image_score_lookup[image_id] = round(max(image_risks), 6)
 
     for row in risk_scores:
         row["image_score"] = image_score_lookup[row["image_id"]]
 
-    return sorted(risk_scores, key=lambda row: (-row["image_score"], -row["risk_score"], row["image_id"], row["ann_id"]))
+    for image in sorted(image_index.get("images", []), key=lambda item: item["image_id"]):
+        if int(image.get("annotation_count", 0)) != 0:
+            continue
+        risk_scores.append(
+            {
+                "review_scope": "image",
+                "image_id": image["image_id"],
+                "ann_id": None,
+                "class_id": None,
+                "class_name": None,
+                "risk_score": 1.0,
+                "risk_tags": ["empty_prelabel_image"],
+                "reason_codes": ["RISK_EMPTY_PRELABEL_IMAGE"],
+                "metric_kind": "proxy",
+                "evidence": {
+                    "annotation_count": 0,
+                    "review_rationale": "zero existing annotations require explicit image-level missing-object review",
+                },
+                "image_score": 1.0,
+            }
+        )
+
+    return sorted(
+        risk_scores,
+        key=lambda row: (
+            -row["image_score"],
+            -row["risk_score"],
+            row["image_id"],
+            row["ann_id"] or "",
+        ),
+    )
 
 
 def build_review_candidates(
@@ -107,46 +148,112 @@ def build_review_candidates(
     candidate_sampling = defaults_config.get("candidate_sampling", {})
     image_top_ratio = float(candidate_sampling.get("image_top_ratio", 0.1))
     annotation_top_ratio = float(candidate_sampling.get("annotation_top_ratio", 0.2))
+    review_all_zero_annotation_images = bool(
+        candidate_sampling.get("review_all_zero_annotation_images", True)
+    )
 
-    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    annotation_rows_by_image: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    image_level_rows_by_image: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in risk_scores:
-        grouped[row["image_id"]].append(row)
+        if row["review_scope"] == "annotation":
+            annotation_rows_by_image[row["image_id"]].append(row)
+            continue
+        if row["review_scope"] == "image":
+            image_level_rows_by_image[row["image_id"]].append(row)
+            continue
+        raise ValueError(f"unsupported risk review_scope: {row['review_scope']}")
 
-    image_rows = sorted(
+    annotation_image_rows = sorted(
         (
             {
                 "image_id": image_id,
                 "image_score": max(item["image_score"] for item in rows),
-                "candidate_annotations": rows,
+                "rows": rows,
             }
-            for image_id, rows in grouped.items()
+            for image_id, rows in annotation_rows_by_image.items()
         ),
         key=lambda row: (-row["image_score"], row["image_id"]),
     )
-    selected_image_count = max(1, ceil(len(image_rows) * image_top_ratio)) if image_rows else 0
-    candidates: list[dict[str, Any]] = []
-    for image_row in image_rows[:selected_image_count]:
-        rows = sorted(
-            image_row["candidate_annotations"],
-            key=lambda row: (-row["risk_score"], row["ann_id"]),
+    selected_annotation_image_count = (
+        max(1, ceil(len(annotation_image_rows) * image_top_ratio))
+        if annotation_image_rows
+        else 0
+    )
+    selected_annotation_image_ids = {
+        row["image_id"]
+        for row in annotation_image_rows[:selected_annotation_image_count]
+    }
+
+    image_level_candidates = {
+        image_id: sorted(
+            rows,
+            key=lambda row: (-row["risk_score"], row["image_id"]),
+        )[0]
+        for image_id, rows in image_level_rows_by_image.items()
+    }
+    if review_all_zero_annotation_images:
+        selected_image_level_ids = set(image_level_candidates)
+    else:
+        ordered_image_level_rows = sorted(
+            image_level_candidates.values(),
+            key=lambda row: (-row["image_score"], row["image_id"]),
         )
-        selected_annotation_count = max(1, ceil(len(rows) * annotation_top_ratio))
+        selected_image_level_count = (
+            max(1, ceil(len(ordered_image_level_rows) * image_top_ratio))
+            if ordered_image_level_rows
+            else 0
+        )
+        selected_image_level_ids = {
+            row["image_id"]
+            for row in ordered_image_level_rows[:selected_image_level_count]
+        }
+
+    selected_image_ids = sorted(
+        selected_annotation_image_ids | selected_image_level_ids
+    )
+    candidates: list[dict[str, Any]] = []
+    for image_id in selected_image_ids:
+        annotation_rows = sorted(
+            annotation_rows_by_image.get(image_id, []),
+            key=lambda row: (-row["risk_score"], row["ann_id"] or ""),
+        )
+        image_level_row = image_level_candidates.get(image_id)
+        selected_annotation_count = (
+            max(1, ceil(len(annotation_rows) * annotation_top_ratio))
+            if annotation_rows
+            else 0
+        )
+        image_score = max(
+            [row["image_score"] for row in annotation_rows] +
+            ([image_level_row["image_score"]] if image_level_row is not None else [0.0])
+        )
         candidates.append(
             {
-                "image_id": image_row["image_id"],
-                "image_score": image_row["image_score"],
+                "image_id": image_id,
+                "image_score": round(float(image_score), 6),
                 "candidate_annotations": [
                     {
                         "ann_id": row["ann_id"],
                         "risk_tags": row["risk_tags"],
                         "risk_score": row["risk_score"],
                         "reason_codes": row["reason_codes"],
+                        "review_scope": row["review_scope"],
                     }
-                    for row in rows[:selected_annotation_count]
+                    for row in annotation_rows[:selected_annotation_count]
                 ],
+                "image_level_candidate": (
+                    {
+                        "risk_tags": image_level_row["risk_tags"],
+                        "risk_score": image_level_row["risk_score"],
+                        "reason_codes": image_level_row["reason_codes"],
+                        "review_scope": image_level_row["review_scope"],
+                    }
+                    if image_level_row is not None and image_id in selected_image_level_ids
+                    else None
+                ),
             }
         )
-    return candidates
+    return sorted(candidates, key=lambda row: (-row["image_score"], row["image_id"]))
 
 
 def run_risk_for_directory(
@@ -156,6 +263,7 @@ def run_risk_for_directory(
     overwrite: bool = False,
 ) -> dict[str, Any]:
     normalized_annotations = load_run_artifact(run_dir, "normalized_annotations")
+    image_index = load_run_artifact(run_dir, "image_index")
     rule_issues = load_run_artifact(run_dir, "rule_issues")
     class_stats = load_run_artifact(run_dir, "class_stats")
     defaults_config = load_defaults_config(defaults_file)
@@ -164,6 +272,7 @@ def run_risk_for_directory(
         normalized_annotations,
         rule_issues,
         class_stats,
+        image_index,
     )
     review_candidates = build_review_candidates(risk_scores, defaults_config)
 

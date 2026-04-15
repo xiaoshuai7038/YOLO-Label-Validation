@@ -11,7 +11,7 @@ from yolo_label_validation.risk import (
     run_risk_for_directory,
 )
 
-from tests.support import build_rule_ready_run
+from tests.support import build_rule_ready_mixed_run, build_rule_ready_run, build_rule_ready_zero_annotation_run
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,6 +27,7 @@ def test_build_risk_scores_and_candidates_are_deterministic(tmp_path) -> None:
         normalized_annotations,
         rule_issues,
         class_stats,
+        load_run_artifact(run_dir, "image_index"),
     )
     review_candidates = build_review_candidates(
         risk_scores,
@@ -39,6 +40,7 @@ def test_build_risk_scores_and_candidates_are_deterministic(tmp_path) -> None:
     assert risk_scores[0]["reason_codes"]
     assert len(review_candidates) == 1
     assert review_candidates[0]["candidate_annotations"][0]["reason_codes"]
+    assert review_candidates[0]["image_level_candidate"] is None
 
 
 def test_run_risk_for_directory_writes_artifacts(tmp_path) -> None:
@@ -54,6 +56,58 @@ def test_run_risk_for_directory_writes_artifacts(tmp_path) -> None:
     assert (run_dir / "review_candidates.json").exists()
     assert len(outputs["risk_scores"]) == 1
     assert outputs["review_candidates"][0]["image_id"]
+
+
+def test_build_review_candidates_include_zero_annotation_images_even_when_annotation_sampling_is_small(tmp_path) -> None:
+    run_dir = build_rule_ready_mixed_run(tmp_path)
+    normalized_annotations = load_run_artifact(run_dir, "normalized_annotations")
+    image_index = load_run_artifact(run_dir, "image_index")
+    rule_issues = load_run_artifact(run_dir, "rule_issues")
+    class_stats = load_run_artifact(run_dir, "class_stats")
+
+    defaults = json.loads((ROOT / "configs" / "defaults.json").read_text(encoding="utf-8"))
+    defaults["candidate_sampling"]["image_top_ratio"] = 0.0
+    defaults["candidate_sampling"]["annotation_top_ratio"] = 0.0
+
+    risk_scores = build_risk_scores(
+        normalized_annotations,
+        rule_issues,
+        class_stats,
+        image_index,
+    )
+    review_candidates = build_review_candidates(risk_scores, defaults)
+
+    zero_image_id = next(
+        image["image_id"]
+        for image in image_index["images"]
+        if image["annotation_count"] == 0
+    )
+    zero_rows = [row for row in risk_scores if row["review_scope"] == "image"]
+    assert len(zero_rows) == 1
+    assert zero_rows[0]["image_id"] == zero_image_id
+    assert zero_rows[0]["reason_codes"] == ["RISK_EMPTY_PRELABEL_IMAGE"]
+
+    zero_candidates = [row for row in review_candidates if row["image_id"] == zero_image_id]
+    assert len(zero_candidates) == 1
+    assert zero_candidates[0]["candidate_annotations"] == []
+    assert zero_candidates[0]["image_level_candidate"]["review_scope"] == "image"
+
+
+def test_run_risk_for_directory_writes_image_level_candidate_for_zero_annotation_run(tmp_path) -> None:
+    run_dir = build_rule_ready_zero_annotation_run(tmp_path)
+
+    outputs = run_risk_for_directory(
+        run_dir,
+        defaults_file=ROOT / "configs" / "defaults.json",
+        overwrite=True,
+    )
+
+    assert outputs["risk_scores"][0]["review_scope"] == "image"
+    assert outputs["risk_scores"][0]["ann_id"] is None
+    assert outputs["review_candidates"][0]["candidate_annotations"] == []
+    assert outputs["review_candidates"][0]["image_level_candidate"]["reason_codes"] == [
+        "RISK_EMPTY_PRELABEL_IMAGE"
+    ]
 
 
 def test_cli_run_risk_writes_risk_outputs(tmp_path, capsys) -> None:

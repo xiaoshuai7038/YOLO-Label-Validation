@@ -7,7 +7,7 @@ from yolo_label_validation.artifact_io import load_run_artifact
 from yolo_label_validation.cli import main
 from yolo_label_validation.detector_refine import run_detector_refine_for_directory
 
-from .support import build_vlm_ready_run
+from .support import build_vlm_ready_run, build_vlm_ready_zero_annotation_run
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -239,3 +239,41 @@ def test_run_detector_refine_live_mode_marks_unconfirmed_missing_as_pending(tmp_
     assert outputs["missing_results"][0]["metric_kind"] == "pending"
     assert outputs["missing_results"][0]["detector_confidence"] == 0.0
     assert outputs["missing_results"][0]["reason_code"] == "DETECTOR_MISSING_UNCONFIRMED"
+
+
+def test_run_detector_refine_supports_image_level_missing_reviews(tmp_path) -> None:
+    run_dir = build_vlm_ready_zero_annotation_run(
+        tmp_path,
+        [
+            {
+                "decision": "add_missing",
+                "class_ok": True,
+                "box_ok": True,
+                "new_class_name": None,
+                "need_refine_box": False,
+                "need_add_missing": True,
+                "missing_candidates": [
+                    {
+                        "class_name": "dog",
+                        "bbox_xyxy": [55.0, 8.0, 90.0, 42.0],
+                        "confidence": 0.96,
+                        "reason": "the image contains an unlabeled carton stack",
+                        "reason_code": "VLM_IMAGE_LEVEL_MISSING",
+                    }
+                ],
+                "reason": "the image contains an unlabeled object",
+                "reason_code": "VLM_IMAGE_REVIEW_MISSING",
+                "confidence": 0.96,
+            }
+        ],
+    )
+
+    outputs = run_detector_refine_for_directory(
+        run_dir,
+        thresholds_file=ROOT / "configs" / "thresholds.example.yaml",
+        overwrite=True,
+    )
+
+    assert outputs["missing_results"][0]["source_ann_id"] is None
+    assert outputs["missing_results"][0]["review_scope"] == "image"
+    assert outputs["missing_results"][0]["missing_id"].startswith("missing:vlm:")

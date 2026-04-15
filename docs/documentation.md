@@ -5,6 +5,102 @@ file and archive older ones if needed.
 
 ## Log
 
+### Iteration: 2026-04-14
+- **Milestone**: post-M9 utility
+- **Change**: added a formal `export-yolo` CLI path that converts a
+  materialized run into a ready-to-use YOLO dataset with copied source images,
+  derived labels, `classes.txt`, `dataset.yaml`, and an export manifest, then
+  ran it on `artifacts/runs/real-full-flow`
+- **Files modified**: `src/yolo_label_validation/materialize.py`,
+  `src/yolo_label_validation/cli.py`, `tests/test_materialize.py`,
+  `tasks/materialized-yolo-export/`, `README.md`, `docs/architecture.md`,
+  `docs/documentation.md`
+- **Verification result**: pass (`uv run pytest -q tests/test_materialize.py`,
+  `uv run pytest -q`,
+  `uv run python scripts/check_task_docs.py tasks/materialized-yolo-export`,
+  `uv run python scripts/run_cli.py export-yolo --run-dir artifacts/runs/real-full-flow --overwrite`)
+- **Decision**: complete
+- **Next step**: none; the exported YOLO dataset is available under
+  `artifacts/runs/real-full-flow/materialized_yolo/`
+
+### Iteration: 2026-04-13
+- **Milestone**: M9
+- **Change**: closed the zero-annotation image-review gap by redefining the
+  review universe from `image_index`, adding explicit `review_scope` metadata
+  across risk/VLM/decision artifacts, preserving image-level missing proposals
+  into downstream patches, and hardening local Codex execution for Windows
+  command resolution plus a more realistic timeout baseline
+- **Files modified**: `configs/defaults.json`,
+  `configs/runtime.integration.json`, `src/yolo_label_validation/risk.py`,
+  `src/yolo_label_validation/vlm.py`,
+  `src/yolo_label_validation/detector_refine.py`,
+  `src/yolo_label_validation/decision.py`,
+  `schemas/risk_score.schema.json`, `schemas/review_candidate.schema.json`,
+  `schemas/vlm_request.schema.json`, `schemas/vlm_review.schema.json`,
+  `schemas/missing_result.schema.json`,
+  `schemas/decision_result.schema.json`,
+  `schemas/manual_review_item.schema.json`, `tests/support.py`,
+  `tests/test_risk.py`, `tests/test_vlm.py`,
+  `tests/test_detector_refine.py`, `tests/test_decision.py`,
+  `tasks/zero-annotation-image-review/`, `docs/failures/taxonomy.md`,
+  `docs/prompt.md`, `docs/plan.md`, `docs/documentation.md`,
+  `docs/architecture.md`, `README.md`, `PLANS.md`,
+  `docs/exec-plans/completed/EP-008-zero-annotation-image-review.md`
+- **Verification result**: pass (`uv run python scripts/check_task_docs.py tasks/zero-annotation-image-review`,
+  `uv run pytest -q tests/test_risk.py tests/test_vlm.py tests/test_detector_refine.py tests/test_decision.py`,
+  `uv run pytest -q`,
+  `uv run python scripts/run_cli.py normalize-yolo --run-id real-smoke --output-dir artifacts/runs/real-smoke --images-dir "E:\workspace\cigarette-identify\预标注测试\20264010" --labels-dir "E:\workspace\cigarette-identify\预标注测试\20264010" --class-name cigarette --pairing-mode stem_before_double_underscore --dataset-version ds_real_smoke --class-map-version classes_real_smoke --prelabel-source prelabel_model_v1 --created-at 2026-04-13T00:00:00Z --overwrite`,
+  `uv run python scripts/run_cli.py run-rules --run-dir artifacts/runs/real-smoke --overwrite`,
+  `uv run python scripts/run_cli.py run-risk --run-dir artifacts/runs/real-smoke --defaults-file configs/defaults.json --overwrite`,
+  `uv run python scripts/run_cli.py run-vlm --run-dir artifacts/runs/real-zero-one-vlm --defaults-file configs/defaults.json --runtime-config configs/runtime.integration.json --overwrite`,
+  `uv run python scripts/run_cli.py run-detector-refine --run-dir artifacts/runs/real-zero-one-vlm --overwrite`,
+  `uv run python scripts/run_cli.py run-decision --run-dir artifacts/runs/real-zero-one-vlm --defaults-file configs/defaults.json --overwrite`)
+- **Decision**: complete at `slice`
+- **Next step**: start M10 cost and policy tuning for the expanded
+  zero-annotation image-review workload
+
+### Iteration: 2026-04-13
+- **Milestone**: M8
+- **Change**: added explicit YOLO pairing-mode support so a real mixed
+  image/label directory with trailing `__hash` filename suffixes can normalize
+  directly into canonical artifacts without renaming source files
+- **Files modified**: `src/yolo_label_validation/ingest.py`,
+  `src/yolo_label_validation/cli.py`, `tests/test_ingest.py`,
+  `tasks/real-dataset-yolo-ingest/`, `docs/prompt.md`, `docs/plan.md`,
+  `docs/documentation.md`, `docs/architecture.md`, `README.md`, `PLANS.md`,
+  `docs/exec-plans/completed/EP-007-real-dataset-yolo-ingest.md`
+- **Verification result**: pass (`uv run python scripts/check_task_docs.py tasks/real-dataset-yolo-ingest`,
+  `uv run pytest -q tests/test_ingest.py`, `uv run pytest -q`,
+  `uv run python scripts/run_cli.py normalize-yolo --run-id real-smoke --output-dir artifacts/runs/real-smoke --images-dir "E:\workspace\cigarette-identify\预标注测试\20264010" --labels-dir "E:\workspace\cigarette-identify\预标注测试\20264010" --class-name cigarette --pairing-mode stem_before_double_underscore --dataset-version ds_real_smoke --class-map-version classes_real_smoke --prelabel-source prelabel_model_v1 --created-at 2026-04-13T00:00:00Z --overwrite`,
+  `uv run python scripts/run_cli.py run-rules --run-dir artifacts/runs/real-smoke --overwrite`,
+  `uv run python scripts/run_cli.py run-risk --run-dir artifacts/runs/real-smoke --defaults-file configs/defaults.json --overwrite`)
+- **Decision**: complete at `slice`
+- **Next step**: redesign the annotation-driven `risk -> vlm -> decision` path
+  so zero-annotation images can receive image-level missing-object review
+
+### Iteration: 2026-04-13
+- **Milestone**: M7
+- **Change**: added local Codex CLI review-runtime support while preserving the
+  frozen `vlm_*` artifacts, kept the legacy HTTP provider paths working,
+  aligned the default review runtime with the local Codex setup, and synced the
+  roadmap/task docs around the new provider direction
+- **Files modified**: `configs/runtime.integration.json`,
+  `configs/defaults.json`, `src/yolo_label_validation/runtime_config.py`,
+  `src/yolo_label_validation/vlm.py`, `src/yolo_label_validation/cli.py`,
+  `src/yolo_label_validation/contracts.py`,
+  `schemas/runtime_integration.schema.json`,
+  `tests/test_runtime_config.py`, `tests/test_vlm.py`,
+  `tasks/codex-review-integration/`, `docs/prompt.md`, `docs/plan.md`,
+  `docs/architecture.md`, `docs/documentation.md`, `README.md`, `PLANS.md`,
+  `docs/exec-plans/completed/EP-006-codex-review-integration.md`
+- **Verification result**: pass (`uv run pytest -q tests/test_runtime_config.py tests/test_vlm.py`,
+  `uv run pytest -q`,
+  `uv run python scripts/check_task_docs.py tasks/codex-review-integration`,
+  real local smoke via `codex exec --image --output-schema ...`)
+- **Decision**: complete at `slice`
+- **Next step**: run a true local smoke with the operator's installed Codex
+  profile and dataset sample
+
 ### Iteration: 2026-04-10
 - **Milestone**: M6
 - **Change**: implemented a committed runtime integration config, live

@@ -11,12 +11,13 @@ from .decision import run_decision_for_directory
 from .detector_refine import run_detector_refine_for_directory
 from .ingest import (
     CocoSource,
+    SUPPORTED_YOLO_PAIRING_MODES,
     YoloSource,
     load_class_names_file,
     normalize_sources,
     write_normalized_run_artifacts,
 )
-from .materialize import run_materialize_for_directory
+from .materialize import run_export_yolo_for_directory, run_materialize_for_directory
 from .risk import run_risk_for_directory
 from .rules import run_rules_for_directory
 from .vlm import run_vlm_for_directory
@@ -49,6 +50,12 @@ def build_parser() -> argparse.ArgumentParser:
     _add_manifest_arguments(normalize_yolo)
     normalize_yolo.add_argument("--images-dir", required=True)
     normalize_yolo.add_argument("--labels-dir", required=True)
+    normalize_yolo.add_argument(
+        "--pairing-mode",
+        default=SUPPORTED_YOLO_PAIRING_MODES[0],
+        choices=SUPPORTED_YOLO_PAIRING_MODES,
+        help="How image and label stems are matched inside normalize-yolo.",
+    )
     normalize_yolo.add_argument("--source-id", default=None)
     normalize_yolo.add_argument("--class-names-file", default=None)
     normalize_yolo.add_argument(
@@ -97,7 +104,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     run_vlm = subparsers.add_parser(
         "run-vlm",
-        help="Build VLM requests and parse either fixture responses or live OpenAI-compatible multimodal responses.",
+        help="Build review requests and parse fixture responses, local Codex CLI outputs, or legacy HTTP-based review-provider responses.",
     )
     run_vlm.add_argument("--run-dir", required=True)
     run_vlm.add_argument("--responses-file", default=None)
@@ -130,6 +137,15 @@ def build_parser() -> argparse.ArgumentParser:
     run_materialize.add_argument("--output-subdir", default="materialized_dataset")
     run_materialize.add_argument("--overwrite", action="store_true")
 
+    export_yolo = subparsers.add_parser(
+        "export-yolo",
+        help="Export a materialized run into a YOLO-format dataset directory with copied images and labels.",
+    )
+    export_yolo.add_argument("--run-dir", required=True)
+    export_yolo.add_argument("--materialized-subdir", default="materialized_dataset")
+    export_yolo.add_argument("--output-subdir", default="materialized_yolo")
+    export_yolo.add_argument("--overwrite", action="store_true")
+
     return parser
 
 
@@ -149,7 +165,7 @@ def _add_manifest_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--normalization-version", default="ingest_v1")
     parser.add_argument("--primary-model-version", default="prelabel_model_v1")
     parser.add_argument("--secondary-detector-version", default="detector_b_v0")
-    parser.add_argument("--vlm-version", default="qwen2.5-vl")
+    parser.add_argument("--vlm-version", default="codex-config-default")
     parser.add_argument("--rules-version", default="rules_v1")
     parser.add_argument("--thresholds-version", default="th_v1")
     parser.add_argument("--created-at", default=None)
@@ -178,6 +194,7 @@ def _handle_normalize_yolo(args: argparse.Namespace) -> int:
         labels_dir=Path(args.labels_dir),
         class_names=class_names,
         source_id=args.source_id or Path(args.labels_dir).name,
+        pairing_mode=args.pairing_mode,
     )
     manifest = _build_manifest(args, default_source_formats=["yolo_txt"])
     result = normalize_sources([source])
@@ -334,6 +351,28 @@ def _handle_run_materialize(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_export_yolo(args: argparse.Namespace) -> int:
+    outputs = run_export_yolo_for_directory(
+        Path(args.run_dir),
+        materialized_subdir=args.materialized_subdir,
+        output_subdir=args.output_subdir,
+        overwrite=args.overwrite,
+    )
+    print(
+        json.dumps(
+            {
+                "yolo_output_dir": str(Path(args.run_dir) / args.output_subdir),
+                "image_count": outputs["yolo_export"]["image_count"],
+                "annotation_count": outputs["yolo_export"]["annotation_count"],
+                "class_count": outputs["yolo_export"]["class_count"],
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
 def _build_manifest(
     args: argparse.Namespace,
     default_source_formats: list[str] | None = None,
@@ -390,6 +429,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _handle_run_detector_refine(args)
     if args.command == "run-materialize":
         return _handle_run_materialize(args)
+    if args.command == "export-yolo":
+        return _handle_export_yolo(args)
 
     parser.error(f"unknown command: {args.command}")
     return 2

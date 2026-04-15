@@ -21,8 +21,9 @@ def build_yolo_fixture(
     tmp_path: Path,
     *,
     class_names: tuple[str, ...] = ("cat", "dog"),
-    label_lines: tuple[str, ...] = ("0 0.5 0.5 0.2 0.4",),
+    label_lines: tuple[str, ...] | None = ("0 0.5 0.5 0.2 0.4",),
     image_name: str = "img-001.png",
+    unlabeled_image_names: tuple[str, ...] = (),
     image_width: int = 100,
     image_height: int = 60,
 ) -> tuple[Path, Path, Path]:
@@ -32,17 +33,30 @@ def build_yolo_fixture(
     labels_dir.mkdir(parents=True, exist_ok=True)
 
     write_png(images_dir / image_name, width=image_width, height=image_height)
-    (labels_dir / f"{Path(image_name).stem}.txt").write_text(
-        "\n".join(label_lines) + "\n",
-        encoding="utf-8",
-    )
+    if label_lines is not None:
+        (labels_dir / f"{Path(image_name).stem}.txt").write_text(
+            "\n".join(label_lines) + "\n",
+            encoding="utf-8",
+        )
+    for unlabeled_image_name in unlabeled_image_names:
+        write_png(images_dir / unlabeled_image_name, width=image_width, height=image_height)
     class_names_file = tmp_path / "classes.txt"
     class_names_file.write_text("\n".join(class_names) + "\n", encoding="utf-8")
     return images_dir, labels_dir, class_names_file
 
 
-def build_normalized_yolo_run(tmp_path: Path) -> Path:
-    images_dir, labels_dir, class_names_file = build_yolo_fixture(tmp_path)
+def build_normalized_yolo_run(
+    tmp_path: Path,
+    *,
+    label_lines: tuple[str, ...] | None = ("0 0.5 0.5 0.2 0.4",),
+    unlabeled_image_names: tuple[str, ...] = (),
+    run_id: str = "rules-smoke",
+) -> Path:
+    images_dir, labels_dir, class_names_file = build_yolo_fixture(
+        tmp_path,
+        label_lines=label_lines,
+        unlabeled_image_names=unlabeled_image_names,
+    )
     result = normalize_sources(
         [
             YoloSource(
@@ -53,9 +67,9 @@ def build_normalized_yolo_run(tmp_path: Path) -> Path:
             )
         ]
     )
-    run_dir = tmp_path / "artifacts" / "runs" / "rules-smoke"
+    run_dir = tmp_path / "artifacts" / "runs" / run_id
     manifest = RunManifest(
-        run_id="rules-smoke",
+        run_id=run_id,
         dataset_version="ds_m2",
         class_map_version="classes_m2",
         prelabel_source="prelabel_model_v1",
@@ -72,8 +86,38 @@ def build_rule_ready_run(tmp_path: Path) -> Path:
     return run_dir
 
 
+def build_rule_ready_mixed_run(tmp_path: Path) -> Path:
+    run_dir = build_normalized_yolo_run(
+        tmp_path,
+        unlabeled_image_names=("img-empty.png",),
+        run_id="rules-smoke-mixed",
+    )
+    run_rules_for_directory(run_dir, overwrite=True)
+    return run_dir
+
+
+def build_rule_ready_zero_annotation_run(tmp_path: Path) -> Path:
+    run_dir = build_normalized_yolo_run(
+        tmp_path,
+        label_lines=None,
+        run_id="rules-smoke-zero",
+    )
+    run_rules_for_directory(run_dir, overwrite=True)
+    return run_dir
+
+
 def build_risk_ready_run(tmp_path: Path) -> Path:
     run_dir = build_rule_ready_run(tmp_path)
+    run_risk_for_directory(
+        run_dir,
+        defaults_file=ROOT / "configs" / "defaults.json",
+        overwrite=True,
+    )
+    return run_dir
+
+
+def build_risk_ready_zero_annotation_run(tmp_path: Path) -> Path:
+    run_dir = build_rule_ready_zero_annotation_run(tmp_path)
     run_risk_for_directory(
         run_dir,
         defaults_file=ROOT / "configs" / "defaults.json",
@@ -88,6 +132,22 @@ def build_vlm_ready_run(
 ) -> Path:
     run_dir = build_risk_ready_run(tmp_path)
     responses_file = tmp_path / "vlm-responses.json"
+    write_json(responses_file, responses_payload)
+    run_vlm_for_directory(
+        run_dir,
+        responses_file=responses_file,
+        defaults_file=ROOT / "configs" / "defaults.json",
+        overwrite=True,
+    )
+    return run_dir
+
+
+def build_vlm_ready_zero_annotation_run(
+    tmp_path: Path,
+    responses_payload: object,
+) -> Path:
+    run_dir = build_risk_ready_zero_annotation_run(tmp_path)
+    responses_file = tmp_path / "vlm-responses-zero.json"
     write_json(responses_file, responses_payload)
     run_vlm_for_directory(
         run_dir,

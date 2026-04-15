@@ -33,7 +33,9 @@ def build_refine_results(
     )
 
     results: list[dict[str, Any]] = []
-    for review in sorted(vlm_review, key=lambda item: (item["image_id"], item["ann_id"])):
+    for review in sorted(vlm_review, key=lambda item: (item["image_id"], item["ann_id"] or "", item["request_id"])):
+        if review.get("review_scope") != "annotation":
+            continue
         if review["decision"] != "refine" and not review["need_refine_box"]:
             continue
         annotation = annotation_lookup.get(review["ann_id"])
@@ -78,18 +80,20 @@ def build_missing_results(
     }
 
     results: list[dict[str, Any]] = []
-    for review in sorted(vlm_review, key=lambda item: (item["image_id"], item["ann_id"])):
+    for review in sorted(vlm_review, key=lambda item: (item["image_id"], item["ann_id"] or "", item["request_id"])):
         if review["decision"] != "add_missing" and not review["need_add_missing"]:
             continue
         image = image_lookup.get(review["image_id"])
         if image is None:
             raise ValueError(f"cannot build missing result for unknown image_id: {review['image_id']}")
+        source_review_id = review["ann_id"] or review["request_id"]
         for index, candidate in enumerate(review["missing_candidates"], start=1):
             results.append(
                 {
-                    "missing_id": f"missing:{review['ann_id']}:{index}",
+                    "missing_id": f"missing:{source_review_id}:{index}",
                     "image_id": review["image_id"],
                     "source_ann_id": review["ann_id"],
+                    "review_scope": review.get("review_scope", "annotation"),
                     "class_id": candidate["class_id"],
                     "class_name": candidate["class_name"],
                     "proposed_bbox_xyxy": _clamp_bbox(
@@ -201,7 +205,9 @@ def build_live_refine_results(
     min_iou = float(detector_config["refine_match_iou"])
 
     results: list[dict[str, Any]] = []
-    for review in sorted(vlm_review, key=lambda item: (item["image_id"], item["ann_id"])):
+    for review in sorted(vlm_review, key=lambda item: (item["image_id"], item["ann_id"] or "", item["request_id"])):
+        if review.get("review_scope") != "annotation":
+            continue
         if review["decision"] != "refine" and not review["need_refine_box"]:
             continue
         annotation = annotation_lookup.get(review["ann_id"])
@@ -258,7 +264,7 @@ def build_live_missing_results(
     min_iou = float(detector_config["missing_match_iou"])
 
     results: list[dict[str, Any]] = []
-    for review in sorted(vlm_review, key=lambda item: (item["image_id"], item["ann_id"])):
+    for review in sorted(vlm_review, key=lambda item: (item["image_id"], item["ann_id"] or "", item["request_id"])):
         if review["decision"] != "add_missing" and not review["need_add_missing"]:
             continue
         image = image_lookup.get(review["image_id"])
@@ -267,6 +273,7 @@ def build_live_missing_results(
 
         used_detection_ids: set[str] = set()
         detections = detections_by_image.get(review["image_id"], [])
+        source_review_id = review["ann_id"] or review["request_id"]
         for index, candidate in enumerate(review["missing_candidates"], start=1):
             candidate_bbox = [float(item) for item in candidate["bbox_xyxy"]]
             match = _best_detection_match(
@@ -280,9 +287,10 @@ def build_live_missing_results(
                 used_detection_ids.add(match["detection_id"])
                 results.append(
                     {
-                        "missing_id": f"missing:{review['ann_id']}:{index}",
+                        "missing_id": f"missing:{source_review_id}:{index}",
                         "image_id": review["image_id"],
                         "source_ann_id": review["ann_id"],
+                        "review_scope": review.get("review_scope", "annotation"),
                         "class_id": candidate["class_id"],
                         "class_name": candidate["class_name"],
                         "proposed_bbox_xyxy": _clamp_bbox(
@@ -300,9 +308,10 @@ def build_live_missing_results(
             else:
                 results.append(
                     {
-                        "missing_id": f"missing:{review['ann_id']}:{index}",
+                        "missing_id": f"missing:{source_review_id}:{index}",
                         "image_id": review["image_id"],
                         "source_ann_id": review["ann_id"],
+                        "review_scope": review.get("review_scope", "annotation"),
                         "class_id": candidate["class_id"],
                         "class_name": candidate["class_name"],
                         "proposed_bbox_xyxy": _clamp_bbox(

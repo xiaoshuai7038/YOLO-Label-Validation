@@ -5,6 +5,7 @@
   "type": "object",
   "required": [
     "request_id",
+    "review_scope",
     "image_id",
     "ann_id",
     "model",
@@ -12,6 +13,7 @@
     "allowed_decisions",
     "image_reference",
     "annotation_context",
+    "image_level_context",
     "class_candidates",
     "response_contract"
   ],
@@ -19,11 +21,21 @@
     "request_id": {
       "type": "string"
     },
+    "review_scope": {
+      "type": "string",
+      "enum": [
+        "annotation",
+        "image"
+      ]
+    },
     "image_id": {
       "type": "string"
     },
     "ann_id": {
-      "type": "string"
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "model": {
       "type": "string"
@@ -65,7 +77,10 @@
       "additionalProperties": false
     },
     "annotation_context": {
-      "type": "object",
+      "type": [
+        "object",
+        "null"
+      ],
       "required": [
         "class_id",
         "class_name",
@@ -149,6 +164,52 @@
             },
             "additionalProperties": false
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    "image_level_context": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "annotation_count",
+        "risk_score",
+        "image_score",
+        "risk_tags",
+        "reason_codes",
+        "rule_issues"
+      ],
+      "properties": {
+        "annotation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "risk_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "image_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "risk_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rule_issues": {
+          "type": "array"
         }
       },
       "additionalProperties": false

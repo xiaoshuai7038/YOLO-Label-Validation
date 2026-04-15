@@ -7,6 +7,7 @@
     "missing_id",
     "image_id",
     "source_ann_id",
+    "review_scope",
     "class_id",
     "class_name",
     "proposed_bbox_xyxy",
@@ -27,6 +28,13 @@
       "type": [
         "string",
         "null"
+      ]
+    },
+    "review_scope": {
+      "type": "string",
+      "enum": [
+        "annotation",
+        "image"
       ]
     },
     "class_id": {

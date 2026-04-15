@@ -7,7 +7,7 @@ Live index of execution plans for this repository.
 
 ## Active
 
-- none
+- none; `M9` is completed and `M10` has not been started yet.
 
 ## Completed
 
@@ -25,6 +25,12 @@ Live index of execution plans for this repository.
   `full` closure.
 - `docs/exec-plans/completed/EP-005-production-integrations.md`
   Production VLM and detector integrations completed at `slice` closure.
+- `docs/exec-plans/completed/EP-006-codex-review-integration.md`
+  OpenAI/Codex review runtime integration completed at `slice` closure.
+- `docs/exec-plans/completed/EP-007-real-dataset-yolo-ingest.md`
+  Real mixed-directory YOLO ingest compatibility completed at `slice` closure.
+- `docs/exec-plans/completed/EP-008-zero-annotation-image-review.md`
+  Zero-annotation image review closure completed at `slice` closure.
 
 ## Rules
 

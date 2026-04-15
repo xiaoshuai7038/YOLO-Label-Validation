@@ -6,15 +6,21 @@
   "analysis_format": "internal_json",
   "candidate_sampling": {
     "image_top_ratio": 0.1,
-    "annotation_top_ratio": 0.2
+    "annotation_top_ratio": 0.2,
+    "review_all_zero_annotation_images": true
   },
   "vlm": {
-    "model": "qwen2.5-vl",
+    "model": "codex-config-default",
     "decision_enum": [
       "keep",
       "relabel",
       "refine",
       "delete",
+      "add_missing",
+      "uncertain"
+    ],
+    "image_decision_enum": [
+      "keep",
       "add_missing",
       "uncertain"
     ]

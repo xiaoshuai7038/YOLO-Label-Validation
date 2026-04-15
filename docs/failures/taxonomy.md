@@ -48,6 +48,17 @@ Classify failures by where information is lost and which metric they hurt.
   `tasks/m3-m5-full-delivery/documentation.md`
 - **Fix level**: cross-module
 
+### Category 5: review_universe_contraction
+
+- **Impacted metric**: missing-object recall and manual-review coverage
+- **Layer**: risk, review-candidate, and VLM request assembly
+- **Symptoms**: the review universe is derived from existing annotations rather
+  than the full image index, so zero-annotation images or other image-level
+  cases are silently excluded from downstream semantic review
+- **Example instances**: `DOC-002` in
+  `tasks/zero-annotation-image-review/documentation.md`
+- **Fix level**: cross-module
+
 ## How to Add a New Category
 
 1. Identify which metric dropped.

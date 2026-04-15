@@ -5,6 +5,7 @@
   "type": "object",
   "required": [
     "queue_id",
+    "review_scope",
     "image_id",
     "ann_id",
     "requested_action",
@@ -16,6 +17,13 @@
   "properties": {
     "queue_id": {
       "type": "string"
+    },
+    "review_scope": {
+      "type": "string",
+      "enum": [
+        "annotation",
+        "image"
+      ]
     },
     "image_id": {
       "type": "string"

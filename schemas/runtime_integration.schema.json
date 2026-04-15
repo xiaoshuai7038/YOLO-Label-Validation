@@ -29,14 +29,9 @@
       "required": [
         "mode",
         "provider",
-        "base_url",
-        "endpoint_path",
-        "model",
         "timeout_seconds",
         "max_retries",
-        "temperature",
         "response_format",
-        "max_tokens",
         "image_transport",
         "system_prompt"
       ],
@@ -49,13 +44,24 @@
           ]
         },
         "provider": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "codex_cli",
+            "openai_compatible",
+            "openai_responses"
+          ]
         },
         "base_url": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "endpoint_path": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "api_key_env": {
           "type": [
@@ -64,7 +70,10 @@
           ]
         },
         "model": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "timeout_seconds": {
           "type": "number",
@@ -75,9 +84,26 @@
           "minimum": 0
         },
         "temperature": {
-          "type": "number",
+          "type": [
+            "number",
+            "null"
+          ],
           "minimum": 0.0,
           "maximum": 2.0
+        },
+        "reasoning_effort": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            null
+          ]
         },
         "response_format": {
           "type": "string",
@@ -87,17 +113,45 @@
           ]
         },
         "max_tokens": {
-          "type": "integer",
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 1
         },
         "image_transport": {
           "type": "string",
           "enum": [
-            "data_url"
+            "data_url",
+            "file_path"
           ]
         },
         "system_prompt": {
           "type": "string"
+        },
+        "command": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "profile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sandbox": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "read-only",
+            "workspace-write",
+            "danger-full-access",
+            null
+          ]
         }
       },
       "additionalProperties": false

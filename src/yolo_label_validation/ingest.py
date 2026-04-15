@@ -13,6 +13,7 @@ from .contracts import RunManifest, SourceFormat, build_artifact_layout
 
 FLOAT_PRECISION = 6
 SUPPORTED_IMAGE_SUFFIXES = (".bmp", ".gif", ".jpeg", ".jpg", ".png", ".ppm")
+SUPPORTED_YOLO_PAIRING_MODES = ("exact_stem", "stem_before_double_underscore")
 
 
 class NormalizationError(ValueError):
@@ -140,6 +141,7 @@ class YoloSource:
     class_names: tuple[str, ...]
     source_id: str = "yolo"
     source_format: SourceFormat = "yolo_txt"
+    pairing_mode: str = "exact_stem"
 
 
 @dataclass(frozen=True, slots=True)
@@ -220,6 +222,7 @@ def normalize_yolo_source(source: YoloSource) -> SourceSnapshot:
         raise NormalizationError(f"YOLO images directory does not exist: {images_dir}")
     if not labels_dir.is_dir():
         raise NormalizationError(f"YOLO labels directory does not exist: {labels_dir}")
+    pairing_mode = _validated_yolo_pairing_mode(source.pairing_mode)
 
     class_names = _validated_class_names(
         source.class_names,
@@ -236,7 +239,7 @@ def normalize_yolo_source(source: YoloSource) -> SourceSnapshot:
         for class_id, class_name in enumerate(class_names)
     ]
 
-    image_lookup = _discover_yolo_images(images_dir)
+    image_lookup = _discover_yolo_images(images_dir, pairing_mode=pairing_mode)
     if not image_lookup:
         raise NormalizationError(f"no supported images found under {images_dir}")
 
@@ -258,7 +261,11 @@ def normalize_yolo_source(source: YoloSource) -> SourceSnapshot:
     annotations: list[PendingAnnotation] = []
     for label_path in sorted(labels_dir.rglob("*.txt")):
         relative_label_path = label_path.relative_to(labels_dir).as_posix()
-        label_key = label_path.relative_to(labels_dir).with_suffix("").as_posix()
+        label_key = _build_yolo_pairing_key(
+            label_path,
+            labels_dir,
+            pairing_mode=pairing_mode,
+        )
         image_entry = image_entries.get(label_key)
         if image_entry is None:
             raise NormalizationError(
@@ -359,6 +366,7 @@ def normalize_yolo_source(source: YoloSource) -> SourceSnapshot:
             "source_format": source.source_format,
             "images_dir": images_dir.as_posix(),
             "labels_dir": labels_dir.as_posix(),
+            "pairing_mode": pairing_mode,
             "image_count": len(image_entries),
             "annotation_count": len(annotations),
             "class_count": len(class_definitions),
@@ -798,20 +806,64 @@ def _read_ppm_size(path: Path) -> tuple[int, int]:
     return int(tokens[1]), int(tokens[2])
 
 
-def _discover_yolo_images(images_dir: Path) -> dict[str, Path]:
+def _discover_yolo_images(
+    images_dir: Path,
+    *,
+    pairing_mode: str = "exact_stem",
+) -> dict[str, Path]:
     mapping: dict[str, Path] = {}
     for image_path in sorted(images_dir.rglob("*")):
         if not image_path.is_file():
             continue
         if image_path.suffix.lower() not in SUPPORTED_IMAGE_SUFFIXES:
             continue
-        stem_key = image_path.relative_to(images_dir).with_suffix("").as_posix()
+        stem_key = _build_yolo_pairing_key(
+            image_path,
+            images_dir,
+            pairing_mode=pairing_mode,
+        )
         if stem_key in mapping:
             raise NormalizationError(
-                f"ambiguous image stem '{stem_key}' under {images_dir}; keep only one image extension per label stem"
+                f"ambiguous image stem '{stem_key}' under {images_dir} for pairing mode "
+                f"'{pairing_mode}'; keep only one image extension per resolved label stem"
             )
         mapping[stem_key] = image_path
     return mapping
+
+
+def _build_yolo_pairing_key(
+    path: Path,
+    root: Path,
+    *,
+    pairing_mode: str,
+) -> str:
+    resolved_mode = _validated_yolo_pairing_mode(pairing_mode)
+    relative_stem = path.relative_to(root).with_suffix("")
+    file_stem = relative_stem.name
+    if resolved_mode == "stem_before_double_underscore":
+        file_stem = _strip_trailing_hash_suffix(file_stem)
+
+    parent = relative_stem.parent.as_posix()
+    if parent in {"", "."}:
+        return file_stem
+    return f"{parent}/{file_stem}"
+
+
+def _validated_yolo_pairing_mode(pairing_mode: str) -> str:
+    normalized = str(pairing_mode).strip() or "exact_stem"
+    if normalized not in SUPPORTED_YOLO_PAIRING_MODES:
+        raise NormalizationError(
+            f"unsupported YOLO pairing_mode '{normalized}'; expected one of "
+            f"{', '.join(SUPPORTED_YOLO_PAIRING_MODES)}"
+        )
+    return normalized
+
+
+def _strip_trailing_hash_suffix(stem: str) -> str:
+    left, separator, right = stem.rpartition("__")
+    if separator and left and right and "_" not in right:
+        return left
+    return stem
 
 
 def _validated_class_names(

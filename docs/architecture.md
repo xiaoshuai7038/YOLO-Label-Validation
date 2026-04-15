@@ -24,13 +24,14 @@ This document translates the SRS into an initial repository shape and module map
 | `bootstrap.py` | initialize run workspace | run metadata | empty but valid artifact files |
 | `task_docs.py` | scaffold task and context docs | task name, task slug | concrete markdown docs |
 | `doc_check.py` | validate task-doc readiness | task folder | blocking findings or pass result |
-| `ingest.py` | parse YOLO/COCO and normalize | raw images, labels, class map | `normalized_annotations.jsonl`, `image_index.json`, `class_map.json` |
+| `ingest.py` | parse YOLO/COCO and normalize | raw images, labels, class map, pairing mode | `normalized_annotations.jsonl`, `image_index.json`, `class_map.json` |
 | `rules.py` | run explicit validation and statistics | normalized annotations, thresholds | `rule_issues.json`, `class_stats.json` |
-| `risk.py` | fuse Cleanlab and FiftyOne signals | predictions, labels, stats | `risk_scores.json`, `review_candidates.json` |
-| `vlm.py` | build Qwen2.5-VL requests and parse JSON | candidates, crops, prompts | `vlm_requests.jsonl`, `vlm_raw_responses.jsonl`, `vlm_review.json` |
+| `risk.py` | fuse rule, annotation, and image-level review signals | predictions, labels, stats, image index | `risk_scores.json`, `review_candidates.json` |
+| `vlm.py` | build provider-configurable review requests and parse structured JSON | annotation and image-level candidates, prompts | `vlm_requests.jsonl`, `vlm_raw_responses.jsonl`, `vlm_review.json` |
 | `decision.py` | merge rules, risk, VLM, and detector evidence | all review outputs | `decision_results.json`, `patches.json`, `manual_review_queue.json` |
 | `detector_refine.py` | refine or add boxes with detector B | crops, current boxes | `refine_results.json`, `missing_results.json` |
 | `materialize.py` | apply patches into dataset views | source labels, patches | `materialized_dataset/`, export manifests |
+| `export-yolo` | derive a YOLO dataset from a materialized run | materialized annotations, image index, class map | `materialized_yolo/` |
 
 ## File Naming Rules
 
@@ -75,7 +76,7 @@ sequenceDiagram
     participant Materialize as materialize.py
     participant RunDir as artifacts/runs/<run_id>
 
-    Operator->>CLI: normalize-yolo --images-dir --labels-dir --class-names-file
+    Operator->>CLI: normalize-yolo --images-dir --labels-dir --pairing-mode --class-names-file
     CLI->>Ingest: parse YOLO txt and image sizes
     Ingest->>YOLO: read images, labels, classes
     Ingest->>RunDir: write normalized_annotations.jsonl
@@ -93,7 +94,7 @@ sequenceDiagram
     Risk->>RunDir: write review_candidates.json
 
     Operator->>CLI: run-vlm --run-dir --responses-file
-    CLI->>VLM: build structured requests for risky annotations
+    CLI->>VLM: build structured requests for risky annotations and zero-annotation images
     VLM->>RunDir: write vlm_requests.jsonl
     VLM->>RunDir: write vlm_raw_responses.jsonl
     VLM->>RunDir: write vlm_review.json
@@ -115,6 +116,16 @@ sequenceDiagram
     Materialize->>RunDir: write run_summary.json
     Materialize->>RunDir: write metrics_dashboard_source.json
 ```
+
+## YOLO Pairing Note
+
+- `normalize-yolo` defaults to exact stem matching.
+- Real datasets may opt into `--pairing-mode stem_before_double_underscore`
+  when image and label filenames differ only by a trailing `__hash` suffix.
+- Zero-label images are preserved in `image_index.json` and now become explicit
+  image-level review candidates in `risk_scores.json`,
+  `review_candidates.json`, `vlm_review.json`, and downstream decision
+  artifacts.
 
 ## Bootstrap Decision
 

@@ -13,7 +13,7 @@ from yolo_label_validation.decision import (
 )
 from yolo_label_validation.detector_refine import run_detector_refine_for_directory
 
-from .support import build_risk_ready_run, build_vlm_ready_run
+from .support import build_risk_ready_run, build_vlm_ready_run, build_vlm_ready_zero_annotation_run
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,6 +47,7 @@ def test_run_decision_for_directory_emits_relabel_patch(tmp_path) -> None:
     assert (run_dir / "decision_results.json").exists()
     assert (run_dir / "patches.json").exists()
     assert outputs["decision_results"][0]["action"] == "relabel"
+    assert outputs["decision_results"][0]["review_scope"] == "annotation"
     assert outputs["patches"][0]["action"] == "relabel"
     assert outputs["patches"][0]["new_class_name"] == "dog"
     assert outputs["manual_review_queue"] == []
@@ -154,6 +155,83 @@ def test_decision_uses_detector_refine_results_for_auto_refine(tmp_path) -> None
     assert outputs["decision_results"][0]["new_bbox_xyxy"]
     assert patches[0]["action"] == "refine"
     assert patches[0]["new_bbox_xyxy"] != patches[0]["old_bbox_xyxy"]
+
+
+def test_run_decision_for_directory_emits_add_patch_from_image_level_missing(tmp_path) -> None:
+    run_dir = build_vlm_ready_zero_annotation_run(
+        tmp_path,
+        [
+            {
+                "decision": "add_missing",
+                "class_ok": True,
+                "box_ok": True,
+                "new_class_name": None,
+                "need_refine_box": False,
+                "need_add_missing": True,
+                "missing_candidates": [
+                    {
+                        "class_name": "dog",
+                        "bbox_xyxy": [55.0, 8.0, 90.0, 42.0],
+                        "confidence": 0.96,
+                        "reason": "the image contains an unlabeled carton stack",
+                        "reason_code": "VLM_IMAGE_LEVEL_MISSING",
+                    }
+                ],
+                "reason": "the image contains an unlabeled object",
+                "reason_code": "VLM_IMAGE_REVIEW_MISSING",
+                "confidence": 0.96,
+            }
+        ],
+    )
+    run_detector_refine_for_directory(
+        run_dir,
+        thresholds_file=ROOT / "configs" / "thresholds.example.yaml",
+        overwrite=True,
+    )
+
+    outputs = run_decision_for_directory(
+        run_dir,
+        defaults_file=ROOT / "configs" / "defaults.json",
+        overwrite=True,
+    )
+
+    add_decisions = [row for row in outputs["decision_results"] if row["action"] == "add"]
+    assert len(add_decisions) == 1
+    assert add_decisions[0]["review_scope"] == "image"
+    assert add_decisions[0]["source_ann_id"] is None
+    assert outputs["patches"][0]["action"] == "add"
+    assert outputs["patches"][0]["review_source"]["review_scope"] == "image"
+
+
+def test_build_manual_review_queue_routes_image_level_uncertain_cases(tmp_path) -> None:
+    run_dir = build_vlm_ready_zero_annotation_run(
+        tmp_path,
+        [
+            {
+                "decision": "uncertain",
+                "class_ok": False,
+                "box_ok": False,
+                "new_class_name": None,
+                "need_refine_box": False,
+                "need_add_missing": False,
+                "missing_candidates": [],
+                "reason": "image-level visibility is too ambiguous",
+                "reason_code": "VLM_IMAGE_UNCERTAIN",
+                "confidence": 0.4,
+            }
+        ],
+    )
+
+    outputs = run_decision_for_directory(
+        run_dir,
+        defaults_file=ROOT / "configs" / "defaults.json",
+        overwrite=True,
+    )
+
+    assert outputs["patches"] == []
+    assert len(outputs["manual_review_queue"]) == 1
+    assert outputs["manual_review_queue"][0]["ann_id"] is None
+    assert outputs["manual_review_queue"][0]["review_scope"] == "image"
 
 
 def test_cli_run_decision_writes_outputs(tmp_path, capsys) -> None:

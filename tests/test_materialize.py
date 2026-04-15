@@ -5,7 +5,10 @@ from pathlib import Path
 
 from yolo_label_validation.artifact_io import load_run_artifact, write_run_artifact
 from yolo_label_validation.cli import main
-from yolo_label_validation.materialize import run_materialize_for_directory
+from yolo_label_validation.materialize import (
+    run_export_yolo_for_directory,
+    run_materialize_for_directory,
+)
 
 from .support import build_decision_ready_run, build_normalized_yolo_run
 
@@ -128,3 +131,88 @@ def test_cli_run_materialize_writes_outputs(tmp_path, capsys) -> None:
     assert payload["summary_run_id"] == "rules-smoke"
     assert payload["patch_count"] == 1
     assert (run_dir / "metrics_dashboard_source.json").exists()
+
+
+def test_run_export_yolo_for_directory_copies_images_and_empty_labels(tmp_path) -> None:
+    run_dir = build_normalized_yolo_run(
+        tmp_path,
+        unlabeled_image_names=("img-empty.png",),
+    )
+    write_run_artifact(run_dir, "patches", [], overwrite=True)
+    write_run_artifact(run_dir, "decision_results", [], overwrite=True)
+    write_run_artifact(run_dir, "manual_review_queue", [], overwrite=True)
+    write_run_artifact(run_dir, "rule_issues", [], overwrite=True)
+    write_run_artifact(run_dir, "risk_scores", [], overwrite=True)
+    write_run_artifact(run_dir, "refine_results", [], overwrite=True)
+    write_run_artifact(run_dir, "missing_results", [], overwrite=True)
+    run_materialize_for_directory(run_dir, overwrite=True)
+
+    outputs = run_export_yolo_for_directory(run_dir, overwrite=True)
+    export_dir = Path(outputs["yolo_export"]["images_dir"]).parent
+
+    assert (export_dir / "images" / "img-001.png").exists()
+    assert (export_dir / "images" / "img-empty.png").exists()
+    assert (export_dir / "labels" / "img-001.txt").read_text(encoding="utf-8") == (
+        "0 0.500000 0.500000 0.200000 0.400000\n"
+    )
+    assert (export_dir / "labels" / "img-empty.txt").read_text(encoding="utf-8") == ""
+    assert (export_dir / "classes.txt").read_text(encoding="utf-8") == "cat\ndog\n"
+    dataset_yaml = (export_dir / "dataset.yaml").read_text(encoding="utf-8")
+    assert "train: images" in dataset_yaml
+    assert "0: cat" in dataset_yaml
+    assert outputs["yolo_export"]["image_count"] == 2
+    assert outputs["yolo_export"]["annotation_count"] == 1
+
+
+def test_cli_export_yolo_writes_dataset(tmp_path, capsys) -> None:
+    run_dir = build_normalized_yolo_run(tmp_path)
+    write_run_artifact(
+        run_dir,
+        "patches",
+        [
+            {
+                "patch_id": "patch:add-001",
+                "image_id": "fixture-yolo:img-001.png",
+                "ann_id": None,
+                "old_class_name": None,
+                "old_bbox_xyxy": None,
+                "action": "add",
+                "new_class_name": "dog",
+                "new_bbox_xyxy": [55.0, 8.0, 90.0, 42.0],
+                "reason": "detected a second object in the frame",
+                "reason_code": "DETECTOR_ADD_PATCH",
+                "review_source": {"decision_id": "decision:missing:1", "reason_codes": ["DETECTOR_ADD_PATCH"]},
+                "confidence": 0.95,
+                "human_reviewed": False,
+                "timestamp": "2026-04-10T00:00:00Z",
+                "metric_kind": "proxy",
+                "evidence": {"missing_result_ids": ["missing:1"]},
+            }
+        ],
+        overwrite=True,
+    )
+    write_run_artifact(run_dir, "decision_results", [], overwrite=True)
+    write_run_artifact(run_dir, "manual_review_queue", [], overwrite=True)
+    write_run_artifact(run_dir, "rule_issues", [], overwrite=True)
+    write_run_artifact(run_dir, "risk_scores", [], overwrite=True)
+    write_run_artifact(run_dir, "refine_results", [], overwrite=True)
+    write_run_artifact(run_dir, "missing_results", [], overwrite=True)
+    run_materialize_for_directory(run_dir, overwrite=True)
+
+    exit_code = main(
+        [
+            "export-yolo",
+            "--run-dir",
+            str(run_dir),
+            "--overwrite",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+    export_dir = run_dir / "materialized_yolo"
+
+    assert exit_code == 0
+    assert payload["image_count"] == 1
+    assert payload["annotation_count"] == 2
+    label_lines = (export_dir / "labels" / "img-001.txt").read_text(encoding="utf-8").splitlines()
+    assert len(label_lines) == 2
+    assert (export_dir / "yolo_export_manifest.json").exists()

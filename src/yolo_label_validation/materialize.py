@@ -6,7 +6,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from .artifact_io import load_run_artifact, write_run_artifact
+from .artifact_io import load_json, load_jsonl, load_run_artifact, write_run_artifact
 
 
 def materialize_dataset_view(
@@ -239,6 +239,104 @@ def run_materialize_for_directory(
     }
 
 
+def export_materialized_yolo_dataset(
+    materialized_annotations: list[dict[str, Any]],
+    materialized_image_index: dict[str, Any],
+    class_map: dict[str, Any],
+    run_manifest: dict[str, Any],
+    output_dir: Path,
+    *,
+    overwrite: bool = False,
+) -> dict[str, Any]:
+    if output_dir.exists():
+        if not overwrite:
+            raise FileExistsError(f"refusing to overwrite existing YOLO export without --overwrite: {output_dir}")
+        shutil.rmtree(output_dir)
+    images_dir = output_dir / "images"
+    labels_dir = output_dir / "labels"
+    images_dir.mkdir(parents=True, exist_ok=True)
+    labels_dir.mkdir(parents=True, exist_ok=True)
+
+    annotations_by_image: dict[str, list[dict[str, Any]]] = {}
+    for annotation in sorted(materialized_annotations, key=lambda item: (item["image_id"], item["ann_id"])):
+        annotations_by_image.setdefault(annotation["image_id"], []).append(annotation)
+
+    image_count = 0
+    annotation_count = 0
+    for image in sorted(materialized_image_index.get("images", []), key=lambda item: item["image_id"]):
+        image_count += 1
+        source_image_path = _resolve_source_image_path(run_manifest, image)
+        target_image_path = images_dir / Path(image["relative_path"])
+        target_image_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_image_path, target_image_path)
+
+        target_label_path = labels_dir / Path(image["relative_path"]).with_suffix(".txt")
+        target_label_path.parent.mkdir(parents=True, exist_ok=True)
+        image_annotations = annotations_by_image.get(image["image_id"], [])
+        annotation_count += len(image_annotations)
+        target_label_path.write_text(
+            "\n".join(_annotation_to_yolo_line(annotation) for annotation in image_annotations) + ("\n" if image_annotations else ""),
+            encoding="utf-8",
+        )
+
+    ordered_classes = sorted(class_map.get("classes", []), key=lambda item: item["class_id"])
+    classes_path = output_dir / "classes.txt"
+    classes_path.write_text(
+        "\n".join(class_entry["class_name"] for class_entry in ordered_classes) + ("\n" if ordered_classes else ""),
+        encoding="utf-8",
+    )
+    dataset_yaml_path = output_dir / "dataset.yaml"
+    dataset_yaml_path.write_text(
+        _build_yolo_dataset_yaml(ordered_classes),
+        encoding="utf-8",
+    )
+
+    manifest = {
+        "run_id": run_manifest["run_id"],
+        "export_format": "yolo_txt",
+        "image_count": image_count,
+        "label_file_count": image_count,
+        "annotation_count": annotation_count,
+        "class_count": len(ordered_classes),
+        "images_dir": str(images_dir),
+        "labels_dir": str(labels_dir),
+        "classes_file": str(classes_path),
+        "dataset_yaml": str(dataset_yaml_path),
+        "source_overwrite": False,
+    }
+    _write_json(output_dir / "yolo_export_manifest.json", manifest)
+    return manifest
+
+
+def run_export_yolo_for_directory(
+    run_dir: Path,
+    *,
+    materialized_subdir: str = "materialized_dataset",
+    output_subdir: str = "materialized_yolo",
+    overwrite: bool = False,
+) -> dict[str, Any]:
+    run_manifest = load_run_artifact(run_dir, "run_manifest")
+    materialized_dir = run_dir / materialized_subdir
+    if not materialized_dir.exists():
+        raise FileNotFoundError(
+            f"materialized dataset directory does not exist: {materialized_dir}. Run run-materialize first."
+        )
+    materialized_annotations = load_jsonl(materialized_dir / "normalized_annotations.jsonl")
+    materialized_image_index = load_json(materialized_dir / "image_index.json")
+    class_map = load_json(materialized_dir / "class_map.json")
+    export_manifest = export_materialized_yolo_dataset(
+        materialized_annotations,
+        materialized_image_index,
+        class_map,
+        run_manifest,
+        run_dir / output_subdir,
+        overwrite=overwrite,
+    )
+    return {
+        "yolo_export": export_manifest,
+    }
+
+
 def _copied_annotation(annotation: dict[str, Any]) -> dict[str, Any]:
     copied = dict(annotation)
     copied["bbox_xyxy"] = list(annotation["bbox_xyxy"])
@@ -330,3 +428,52 @@ def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
     if payload:
         payload += "\n"
     path.write_text(payload, encoding="utf-8")
+
+
+def _resolve_source_image_path(
+    run_manifest: dict[str, Any],
+    image: dict[str, Any],
+) -> Path:
+    source_id = image["source_id"]
+    relative_path = Path(image["relative_path"])
+    for source in run_manifest.get("input_sources", []):
+        if source.get("source_id") != source_id:
+            continue
+        images_dir = source.get("images_dir")
+        if not images_dir:
+            raise ValueError(f"input source {source_id} does not expose images_dir for YOLO export")
+        image_path = Path(images_dir) / relative_path
+        if image_path.exists():
+            return image_path
+        raise FileNotFoundError(f"source image for YOLO export does not exist: {image_path}")
+    raise ValueError(f"cannot resolve source image for YOLO export: {image['image_id']}")
+
+
+def _annotation_to_yolo_line(annotation: dict[str, Any]) -> str:
+    cx, cy, width, height = annotation["bbox_normalized_cxcywh"]
+    return " ".join(
+        [
+            str(int(annotation["class_id"])),
+            _format_yolo_float(cx),
+            _format_yolo_float(cy),
+            _format_yolo_float(width),
+            _format_yolo_float(height),
+        ]
+    )
+
+
+def _format_yolo_float(value: Any) -> str:
+    return f"{float(value):.6f}"
+
+
+def _build_yolo_dataset_yaml(classes: list[dict[str, Any]]) -> str:
+    lines = [
+        "path: .",
+        "train: images",
+        "val: images",
+        f"nc: {len(classes)}",
+        "names:",
+    ]
+    for class_entry in classes:
+        lines.append(f"  {class_entry['class_id']}: {class_entry['class_name']}")
+    return "\n".join(lines) + "\n"

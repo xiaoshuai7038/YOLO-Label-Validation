@@ -4,6 +4,7 @@
   "title": "RiskScore",
   "type": "object",
   "required": [
+    "review_scope",
     "image_id",
     "ann_id",
     "class_id",
@@ -16,18 +17,34 @@
     "image_score"
   ],
   "properties": {
+    "review_scope": {
+      "type": "string",
+      "enum": [
+        "annotation",
+        "image"
+      ]
+    },
     "image_id": {
       "type": "string"
     },
     "ann_id": {
-      "type": "string"
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "class_id": {
-      "type": "integer",
+      "type": [
+        "integer",
+        "null"
+      ],
       "minimum": 0
     },
     "class_name": {
-      "type": "string"
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "risk_score": {
       "type": "number",

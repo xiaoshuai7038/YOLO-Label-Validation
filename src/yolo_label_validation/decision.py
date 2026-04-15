@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import Counter, defaultdict
+from collections import defaultdict
 from typing import Any
 from pathlib import Path
 
@@ -29,16 +29,30 @@ def build_decision_results(
     issues_by_ann: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for issue in sorted(
         rule_issues,
-        key=lambda item: (item["image_id"], item["ann_id"], item["issue_type"], item.get("related_ann_id") or ""),
+        key=lambda item: (item["image_id"], item["ann_id"] or "", item["issue_type"], item.get("related_ann_id") or ""),
     ):
-        issues_by_ann[issue["ann_id"]].append(issue)
+        if issue["ann_id"] is not None:
+            issues_by_ann[issue["ann_id"]].append(issue)
+
     risk_by_ann = {
         row["ann_id"]: row
         for row in risk_scores
+        if row.get("review_scope") == "annotation" and row.get("ann_id") is not None
+    }
+    image_risk_by_image = {
+        row["image_id"]: row
+        for row in risk_scores
+        if row.get("review_scope") == "image"
     }
     review_by_ann = {
         row["ann_id"]: row
-        for row in sorted(vlm_review, key=lambda item: (item["image_id"], item["ann_id"]))
+        for row in sorted(vlm_review, key=lambda item: (item["image_id"], item["ann_id"] or "", item["request_id"]))
+        if row.get("review_scope") == "annotation" and row.get("ann_id") is not None
+    }
+    image_review_by_image = {
+        row["image_id"]: row
+        for row in sorted(vlm_review, key=lambda item: (item["image_id"], item["request_id"]))
+        if row.get("review_scope") == "image"
     }
     refine_by_ann = {
         row["ann_id"]: row
@@ -46,14 +60,18 @@ def build_decision_results(
             refine_results or [],
             key=lambda item: (-item["detector_confidence"], item["image_id"], item["ann_id"]),
         )
+        if row.get("ann_id") is not None
     }
     missing_by_source_ann: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    image_missing_by_image: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in sorted(
         missing_results or [],
         key=lambda item: (-item["detector_confidence"], item["image_id"], item["missing_id"]),
     ):
         if row["source_ann_id"] is not None:
             missing_by_source_ann[row["source_ann_id"]].append(row)
+        elif row.get("review_scope") == "image":
+            image_missing_by_image[row["image_id"]].append(row)
 
     decision_results: list[dict[str, Any]] = []
     for annotation in sorted(normalized_annotations, key=lambda item: (item["image_id"], item["ann_id"])):
@@ -66,6 +84,7 @@ def build_decision_results(
         has_error_issue = any(issue["severity"] == "error" for issue in issues)
 
         evidence = {
+            "review_scope": "annotation",
             "rule_issue_ids": [issue["issue_id"] for issue in issues],
             "risk_score": risk_row["risk_score"] if risk_row is not None else None,
             "risk_tags": risk_row["risk_tags"] if risk_row is not None else [],
@@ -79,6 +98,7 @@ def build_decision_results(
             decision_results.append(
                 _decision_result(
                     annotation,
+                    review_scope="annotation",
                     action="manual_review",
                     status="manual_review",
                     reason="explicit rule errors require a human decision before automatic routing",
@@ -94,6 +114,7 @@ def build_decision_results(
             decision_results.append(
                 _decision_result(
                     annotation,
+                    review_scope="annotation",
                     action="keep",
                     status="auto",
                     reason="annotation stayed outside the sampled review set and has no blocking rule issue",
@@ -151,6 +172,7 @@ def build_decision_results(
         decision_results.append(
             _decision_result(
                 annotation,
+                review_scope="annotation",
                 action=action,
                 status=status,
                 reason=reason,
@@ -163,13 +185,60 @@ def build_decision_results(
             )
         )
 
+    for image_id, review in sorted(image_review_by_image.items(), key=lambda item: item[0]):
+        missing_for_image = image_missing_by_image.get(image_id, [])
+        image_risk = image_risk_by_image.get(image_id)
+        evidence = {
+            "review_scope": "image",
+            "rule_issue_ids": [],
+            "risk_score": image_risk["risk_score"] if image_risk is not None else None,
+            "risk_tags": image_risk["risk_tags"] if image_risk is not None else [],
+            "vlm_request_id": review["request_id"],
+            "vlm_decision": review["decision"],
+            "detector_refine_id": None,
+            "missing_result_ids": [row["missing_id"] for row in missing_for_image],
+        }
+        if review["decision"] == "keep" and review["confidence"] >= keep_threshold:
+            decision_results.append(
+                _image_review_decision_result(
+                    image_id=image_id,
+                    action="keep",
+                    status="auto",
+                    reason=review["reason"],
+                    reason_codes=[review["reason_code"], "DECISION_IMAGE_KEEP"],
+                    confidence=review["confidence"],
+                    evidence=evidence,
+                    review=review,
+                )
+            )
+            continue
+        if review["decision"] == "uncertain" or (
+            review["decision"] == "add_missing" and not missing_for_image
+        ):
+            decision_results.append(
+                _image_review_decision_result(
+                    image_id=image_id,
+                    action="manual_review",
+                    status="manual_review",
+                    reason=review["reason"],
+                    reason_codes=[review["reason_code"], "DECISION_IMAGE_MANUAL_REVIEW"],
+                    confidence=review["confidence"],
+                    evidence=evidence,
+                    review=review,
+                )
+            )
+
     for missing_row in sorted(
         missing_results or [],
         key=lambda item: (item["image_id"], item["missing_id"]),
     ):
+        review_scope = missing_row.get("review_scope") or (
+            "annotation" if missing_row["source_ann_id"] is not None else "image"
+        )
         decision_results.append(
             {
                 "decision_id": f"decision:{missing_row['missing_id']}",
+                "review_scope": review_scope,
                 "image_id": missing_row["image_id"],
                 "ann_id": None,
                 "source_ann_id": missing_row["source_ann_id"],
@@ -184,6 +253,7 @@ def build_decision_results(
                 "new_class_name": missing_row["class_name"],
                 "new_bbox_xyxy": missing_row["proposed_bbox_xyxy"],
                 "evidence": {
+                    "review_scope": review_scope,
                     "rule_issue_ids": [],
                     "risk_score": None,
                     "risk_tags": [],
@@ -236,6 +306,7 @@ def build_patch_records(
                 "reason_code": decision["reason_codes"][0],
                 "review_source": {
                     "decision_id": decision["decision_id"],
+                    "review_scope": decision["review_scope"],
                     "reason_codes": decision["reason_codes"],
                 },
                 "confidence": decision["confidence"],
@@ -266,6 +337,7 @@ def build_manual_review_queue(
         queue.append(
             {
                 "queue_id": f"manual:{decision['decision_id']}",
+                "review_scope": decision["review_scope"],
                 "image_id": decision["image_id"],
                 "ann_id": decision["ann_id"],
                 "requested_action": decision["action"],
@@ -328,6 +400,7 @@ def _baseline_confidence(risk_row: dict[str, Any] | None) -> float:
 def _decision_result(
     annotation: dict[str, Any],
     *,
+    review_scope: str,
     action: str,
     status: str,
     reason: str,
@@ -340,6 +413,7 @@ def _decision_result(
 ) -> dict[str, Any]:
     return {
         "decision_id": f"decision:{annotation['ann_id']}",
+        "review_scope": review_scope,
         "image_id": annotation["image_id"],
         "ann_id": annotation["ann_id"],
         "source_ann_id": annotation["ann_id"],
@@ -353,5 +427,36 @@ def _decision_result(
         "metric_kind": review["metric_kind"] if review is not None else "proxy",
         "new_class_name": new_class_name,
         "new_bbox_xyxy": new_bbox_xyxy,
+        "evidence": evidence,
+    }
+
+
+def _image_review_decision_result(
+    *,
+    image_id: str,
+    action: str,
+    status: str,
+    reason: str,
+    reason_codes: list[str],
+    confidence: float,
+    evidence: dict[str, Any],
+    review: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "decision_id": f"decision:{review['request_id']}",
+        "review_scope": "image",
+        "image_id": image_id,
+        "ann_id": None,
+        "source_ann_id": None,
+        "class_id": None,
+        "class_name": None,
+        "action": action,
+        "status": status,
+        "reason": reason,
+        "reason_codes": list(dict.fromkeys(reason_codes)),
+        "confidence": round(float(confidence), 6),
+        "metric_kind": review["metric_kind"],
+        "new_class_name": None,
+        "new_bbox_xyxy": None,
         "evidence": evidence,
     }

@@ -77,21 +77,64 @@ def _normalized_runtime_config(payload: dict[str, Any]) -> dict[str, Any]:
 def _normalized_vlm_config(value: Any) -> dict[str, Any]:
     payload = _mapping(value, "vlm")
     mode = _enum_string(payload.get("mode"), "vlm.mode", {"fixture", "live"})
-    return {
+    provider = _enum_string(
+        payload.get("provider"),
+        "vlm.provider",
+        {"codex_cli", "openai_compatible", "openai_responses"},
+    )
+    config = {
         "mode": mode,
-        "provider": _non_empty_string(payload.get("provider"), "vlm.provider"),
-        "base_url": _non_empty_string(payload.get("base_url"), "vlm.base_url"),
-        "endpoint_path": _non_empty_string(payload.get("endpoint_path"), "vlm.endpoint_path"),
-        "api_key_env": _optional_string(payload.get("api_key_env"), "vlm.api_key_env"),
-        "model": _non_empty_string(payload.get("model"), "vlm.model"),
+        "provider": provider,
         "timeout_seconds": _bounded_float(payload.get("timeout_seconds"), "vlm.timeout_seconds", minimum=1.0),
         "max_retries": _bounded_int(payload.get("max_retries"), "vlm.max_retries", minimum=0),
-        "temperature": _bounded_float(payload.get("temperature"), "vlm.temperature", minimum=0.0, maximum=2.0),
+        "reasoning_effort": _optional_enum_string(
+            payload.get("reasoning_effort"),
+            "vlm.reasoning_effort",
+            {"none", "low", "medium", "high", "xhigh"},
+        ),
         "response_format": _enum_string(payload.get("response_format"), "vlm.response_format", {"json_object", "none"}),
-        "max_tokens": _bounded_int(payload.get("max_tokens"), "vlm.max_tokens", minimum=1),
-        "image_transport": _enum_string(payload.get("image_transport"), "vlm.image_transport", {"data_url"}),
+        "image_transport": _enum_string(payload.get("image_transport"), "vlm.image_transport", {"data_url", "file_path"}),
         "system_prompt": _non_empty_string(payload.get("system_prompt"), "vlm.system_prompt"),
+        "model": _optional_string(payload.get("model"), "vlm.model"),
+        "temperature": _optional_bounded_float(
+            payload.get("temperature"),
+            "vlm.temperature",
+            minimum=0.0,
+            maximum=2.0,
+        ),
+        "max_tokens": _optional_bounded_int(payload.get("max_tokens"), "vlm.max_tokens", minimum=1),
+        "base_url": None,
+        "endpoint_path": None,
+        "api_key_env": None,
+        "command": None,
+        "profile": None,
+        "sandbox": None,
     }
+    if provider == "codex_cli":
+        config.update(
+            {
+                "command": _non_empty_string(payload.get("command") or "codex", "vlm.command"),
+                "profile": _optional_string(payload.get("profile"), "vlm.profile"),
+                "sandbox": _enum_string(
+                    payload.get("sandbox") or "read-only",
+                    "vlm.sandbox",
+                    {"read-only", "workspace-write", "danger-full-access"},
+                ),
+            }
+        )
+        return config
+
+    config.update(
+        {
+            "base_url": _non_empty_string(payload.get("base_url"), "vlm.base_url"),
+            "endpoint_path": _non_empty_string(payload.get("endpoint_path"), "vlm.endpoint_path"),
+            "api_key_env": _optional_string(payload.get("api_key_env"), "vlm.api_key_env"),
+            "model": _non_empty_string(payload.get("model"), "vlm.model"),
+            "temperature": _bounded_float(payload.get("temperature"), "vlm.temperature", minimum=0.0, maximum=2.0),
+            "max_tokens": _bounded_int(payload.get("max_tokens"), "vlm.max_tokens", minimum=1),
+        }
+    )
+    return config
 
 
 def _normalized_detector_config(value: Any) -> dict[str, Any]:
@@ -139,6 +182,36 @@ def _optional_string(value: Any, label: str) -> str | None:
     if value is None:
         return None
     return _non_empty_string(value, label)
+
+
+def _optional_enum_string(value: Any, label: str, valid_values: set[str]) -> str | None:
+    if value is None:
+        return None
+    return _enum_string(value, label, valid_values)
+
+
+def _optional_bounded_int(
+    value: Any,
+    label: str,
+    *,
+    minimum: int | None = None,
+    maximum: int | None = None,
+) -> int | None:
+    if value is None:
+        return None
+    return _bounded_int(value, label, minimum=minimum, maximum=maximum)
+
+
+def _optional_bounded_float(
+    value: Any,
+    label: str,
+    *,
+    minimum: float | None = None,
+    maximum: float | None = None,
+) -> float | None:
+    if value is None:
+        return None
+    return _bounded_float(value, label, minimum=minimum, maximum=maximum)
 
 
 def _non_empty_string(value: Any, label: str) -> str:

@@ -6,7 +6,8 @@
   "required": [
     "image_id",
     "image_score",
-    "candidate_annotations"
+    "candidate_annotations",
+    "image_level_candidate"
   ],
   "properties": {
     "image_id": {
@@ -21,6 +22,7 @@
         "type": "object",
         "required": [
           "ann_id",
+          "review_scope",
           "risk_tags",
           "risk_score",
           "reason_codes"
@@ -28,6 +30,12 @@
         "properties": {
           "ann_id": {
             "type": "string"
+          },
+          "review_scope": {
+            "type": "string",
+            "enum": [
+              "annotation"
+            ]
           },
           "risk_tags": {
             "type": "array",
@@ -47,6 +55,42 @@
         },
         "additionalProperties": false
       }
+    },
+    "image_level_candidate": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "review_scope",
+        "risk_tags",
+        "risk_score",
+        "reason_codes"
+      ],
+      "properties": {
+        "review_scope": {
+          "type": "string",
+          "enum": [
+            "image"
+          ]
+        },
+        "risk_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "risk_score": {
+          "type": "number"
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

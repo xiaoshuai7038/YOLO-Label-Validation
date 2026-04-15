@@ -5,6 +5,7 @@
   "type": "object",
   "required": [
     "request_id",
+    "review_scope",
     "image_id",
     "ann_id",
     "decision",
@@ -22,11 +23,21 @@
     "request_id": {
       "type": "string"
     },
+    "review_scope": {
+      "type": "string",
+      "enum": [
+        "annotation",
+        "image"
+      ]
+    },
     "image_id": {
       "type": "string"
     },
     "ann_id": {
-      "type": "string"
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "decision": {
       "type": "string",
